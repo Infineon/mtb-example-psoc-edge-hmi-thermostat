@@ -1,0 +1,48 @@
+Set temperature to <numbers30> {degree,degrees}
+change temperature to <numbers30> {degree,degrees}
+Increase temperature by <numbers10> {degree,degrees}
+raise temperature by <numbers10> {degree,degrees}
+Decrease temperature by <numbers10> {degree,degrees}
+lower temperature by <numbers10> {degree,degrees}
+reduce temperature by <numbers10> {degree,degrees}
+Increase brightness
+Increase screen brightness
+Decrease brightness
+Decrease screen brightness
+Reduce brightness
+Reduce screen brightness
+switch ON heating
+switch ON cooling
+turn ON heating
+turn ON cooling
+switch OFF heating
+switch OFF cooling
+turn OFF heating
+turn OFF cooling
+Increase fan speed
+Decrease fan speed
+Reduce fan speed
+change mode to eco
+change mode to rapid
+change mode to auto
+set mode to eco
+set mode to rapid
+set mode to auto
+What's the wifi status
+What is the wifi status
+goto setting <end-silence>
+goto setting screen
+goto settings <end-silence>
+goto settings screen
+mute volume
+mute sound
+disable volume
+disable sound
+unmute volume
+unmute sound
+enable volume
+enable sound
+Make warmer
+Make it warmer
+Make cooler
+Make it cooler

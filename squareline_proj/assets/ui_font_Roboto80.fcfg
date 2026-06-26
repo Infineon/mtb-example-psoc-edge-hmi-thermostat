@@ -1,0 +1,16 @@
+{
+  "codename": "Roboto80",
+  "ttf_path": "/assets/Roboto-VariableFont_wdth,wght.ttf",
+  "bin_path": "/assets\\ui_font_Roboto80.bin",
+  "c_path": "/assets\\ui_font_Roboto80.c",
+  "cfg_path": "/assets\\ui_font_Roboto80.fcfg",
+  "size": 80,
+  "bpp": 4,
+  "letters": 0,
+  "ranges": [
+    "0x20-0x7f"
+  ],
+  "symbols": "123456789°",
+  "customparams": "--no-compress --no-prefilter",
+  "uploaded": false
+}

@@ -1,0 +1,648 @@
+{
+    "projectName": "va_hmi_thermostat_demo",
+    "settings": {
+        "arm_core_id": "U55",
+        "ww_false_fraction": 0.0002,
+        "cmd_reject_fraction": 0.99,
+        "sod_ww_noactivity_timeout_ms": 800,
+        "ww_cmd_maxwwgap_ms": 1200,
+        "cmd_timeout_adjust_level": 26214,
+        "dict": "English-US",
+        "op_cond_db": 10,
+        "nlu_timeout_ms": 0,
+        "nlu_sensitivity": 0,
+        "wwd_sensitivity": 0,
+        "nlu_pos_silence_ms": 300,
+        "nlu_pre_silence_ms": 0,
+        "wwd_pos_silence_ms": 0,
+        "wwd_pre_silence_ms": 200
+    },
+    "wakewords": [
+        {
+            "interjections": [
+                "OK"
+            ],
+            "word": "Thermostat",
+            "phoneme": []
+        }
+    ],
+    "intents": [
+        {
+            "name": "SETTEMPERATURE_C",
+            "nodes": [
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "Set",
+                            "change"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "temperature"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "to"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "variable",
+                        "name": "DegreeSet"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "INCREASETEMPERATURE",
+            "nodes": [
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "Increase",
+                            "raise"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "temperature"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "by"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "variable",
+                        "name": "DegreeIncrease"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "DECREASETEMPERATURE",
+            "nodes": [
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "Decrease",
+                            "lower",
+                            "reduce"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "temperature"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "by"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "variable",
+                        "name": "DegreeDecrease"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "INCREASESCREENBRIGHTNESS",
+            "nodes": [
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "Increase"
+                        ]
+                    }
+                },
+                {
+                    "required": false,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "screen"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "brightness"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "DECREASESCREENBRIGHTNESS",
+            "nodes": [
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "Decrease",
+                            "Reduce"
+                        ]
+                    }
+                },
+                {
+                    "required": false,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "screen"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "brightness"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "TURNONCMD",
+            "nodes": [
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "switch",
+                            "turn"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "ON"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "variable",
+                        "name": "HeaterOnCmds"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "TURNOFFCMD",
+            "nodes": [
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "switch",
+                            "turn"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "OFF"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "variable",
+                        "name": "HeaterOffCmds"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "INCREASEFANSPEED",
+            "nodes": [
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "Increase"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "fan"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "speed"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "DECREASEFANSPEED",
+            "nodes": [
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "Decrease",
+                            "Reduce"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "fan"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "speed"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "THERMOSTATMODE",
+            "nodes": [
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "change",
+                            "set"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "mode"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "to"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "variable",
+                        "name": "ModesList"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "WIFISTATUS",
+            "nodes": [
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "What's",
+                            "What is"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "the"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "wifi"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "status"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "SETTINGMODE",
+            "nodes": [
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "goto"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "setting",
+                            "settings"
+                        ]
+                    }
+                },
+                {
+                    "required": false,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "screen"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "MUTEVOLUME",
+            "nodes": [
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "mute",
+                            "disable"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "volume",
+                            "sound"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "UNMUTEVOLUME",
+            "nodes": [
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "unmute",
+                            "enable"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "volume",
+                            "sound"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "MAKEITWARMER",
+            "nodes": [
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "Make"
+                        ]
+                    }
+                },
+                {
+                    "required": false,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "it"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "warmer"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "MAKEITCOOLER",
+            "nodes": [
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "Make"
+                        ]
+                    }
+                },
+                {
+                    "required": false,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "it"
+                        ]
+                    }
+                },
+                {
+                    "required": true,
+                    "value": {
+                        "type": "text",
+                        "phrases": [
+                            "cooler"
+                        ]
+                    }
+                }
+            ]
+        }
+    ],
+    "variables": [
+        {
+            "name": "DegreeSet",
+            "type": "integer",
+            "phrases": null,
+            "ranges": [
+                "30"
+            ],
+            "units": [
+                [
+                    "degree",
+                    "degrees"
+                ]
+            ]
+        },
+        {
+            "name": "DegreeIncrease",
+            "type": "integer",
+            "phrases": null,
+            "ranges": [
+                "10"
+            ],
+            "units": [
+                [
+                    "degree",
+                    "degrees"
+                ]
+            ]
+        },
+        {
+            "name": "DegreeDecrease",
+            "type": "integer",
+            "phrases": null,
+            "ranges": [
+                "10"
+            ],
+            "units": [
+                [
+                    "degree",
+                    "degrees"
+                ]
+            ]
+        },
+        {
+            "name": "HeaterOnCmds",
+            "type": "text",
+            "phrases": [
+                "heating",
+                "cooling"
+            ],
+            "ranges": null,
+            "units": null
+        },
+        {
+            "name": "HeaterOffCmds",
+            "type": "text",
+            "phrases": [
+                "heating",
+                "cooling"
+            ],
+            "ranges": null,
+            "units": null
+        },
+        {
+            "name": "ModesList",
+            "type": "text",
+            "phrases": [
+                "eco",
+                "rapid",
+                "auto"
+            ],
+            "ranges": null,
+            "units": null
+        }
+    ]
+}
