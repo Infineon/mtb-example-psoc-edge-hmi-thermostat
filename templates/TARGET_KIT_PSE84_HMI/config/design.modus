@@ -2912,7 +2912,7 @@
                         <Param id="inFlash" value="true"/>
                     </Parameters>
                 </Personality>
-                <Personality template="spi" version="3.0" instance="Fn83iZtj1n0">
+                <Personality template="spi" version="4.0" instance="Fn83iZtj1n0">
                     <Block location="scb[3]" locked="true">
                         <Aliases>
                             <Alias value="CYBSP_SPI_CONTROLLER_2"/>
@@ -3015,7 +3015,7 @@
                         <Param id="inFlash" value="true"/>
                     </Parameters>
                 </Personality>
-                <Personality template="spi" version="3.0" instance="2Z1Skvz1LvA">
+                <Personality template="spi" version="4.0" instance="2Z1Skvz1LvA">
                     <Block location="scb[10]" locked="true">
                         <Aliases>
                             <Alias value="CYBSP_SPI_CONTROLLER"/>

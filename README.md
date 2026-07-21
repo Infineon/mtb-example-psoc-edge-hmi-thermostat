@@ -203,6 +203,7 @@ Document title: *CE242776* - *PSOC&trade; Edge HMI Kit: Smart thermostat*
  Version | Description of change
  ------- | ---------------------
  1.0.0   | New code example
+ 1.0.1   | Updated the design file to use the latest SPI personality
 <br>
 
 
