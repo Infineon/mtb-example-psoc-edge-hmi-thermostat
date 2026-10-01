@@ -165,14 +165,6 @@ extern lv_obj_t *ui_connstatekeybdimg;
 extern lv_obj_t * ui_bleswitchbtnicon;
 extern lv_obj_t * ui_bleswitchbtn;
 extern lv_obj_t * ui_bleconnected50;
-extern lv_obj_t * ui_devstatecontainerssidfield;
-extern lv_obj_t * ui_devstatecontainerpasswordfield;
-extern lv_obj_t * ui_devstatecontainerwifisubmit;
-extern lv_obj_t * ui_wifisubmitbtnlabel1;
-extern lv_obj_t * ui_devstatecontainerkeybd;
-extern lv_obj_t * ui_devstatecontainerkeybdok;
-extern lv_obj_t * ui_devcontainerkeybdgoback;
-extern lv_obj_t * ui_devcontainerkeybdgobackimg;
 extern lv_obj_t * ui_wifi;
 extern lv_obj_t * ui_wifistatic;
 extern lv_obj_t * ui_micdisabled;
@@ -184,7 +176,6 @@ extern lv_obj_t * ui_cmdlistheader;
 extern lv_obj_t * ui_voicecmdlistpanel;
 extern lv_obj_t * ui_Roller1;
 extern lv_obj_t * ui_bleconkeybdimg;
-extern lv_obj_t * ui_bleconmappinfolabel;
 extern lv_obj_t * ui_activeBGImg;
 extern lv_obj_t * ui_descriptionPanel;
 extern lv_obj_t * ui_descriptionLabel;
@@ -196,6 +187,10 @@ extern lv_obj_t * ui_descriptionLabelSecondary;
 extern lv_obj_t * ui_arrowSecondary;
 extern void ui_event_descriptionPanel(lv_event_t * e);
 extern void ui_event_skipTutorial(lv_event_t * e);
+extern lv_obj_t * ui_pinlabel;
+extern lv_obj_t * ui_titlelabel;
+extern lv_obj_t * ui_instructionlabel;
+extern lv_obj_t * ui_blepairingcode;
 
 // CUSTOM VARIABLES
 

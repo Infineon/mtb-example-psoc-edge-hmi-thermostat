@@ -2,7 +2,7 @@
     "projectName": "va_hmi_thermostat_demo",
     "settings": {
         "arm_core_id": "U55",
-        "ww_false_fraction": 0.0002,
+        "ww_false_fraction": 0.0003,
         "cmd_reject_fraction": 0.99,
         "sod_ww_noactivity_timeout_ms": 800,
         "ww_cmd_maxwwgap_ms": 1200,

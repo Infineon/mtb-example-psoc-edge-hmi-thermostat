@@ -173,10 +173,6 @@ volatile int g_error_line = 0;
 *******************************************************************************/
 void app_error_handler(uint32_t error_code, const char *file, int line)
 {
-    // Buffer to hold task list information. Size must be adequate for all tasks.
-    // A standard size for a small embedded system with <10 tasks.
-    static char pcTaskListBuffer[512];
-
     // 1. Store state for debugger inspection (optional but highly recommended)
     g_system_error_code = error_code;
     g_error_file = file;

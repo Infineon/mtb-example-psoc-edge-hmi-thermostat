@@ -36,16 +36,16 @@ TARGET=KIT_PSE84_HMI
 # ARM     	-- ARM Compiler (must be installed separately)
 #
 # See also: CY_COMPILER_PATH below
-TOOLCHAIN=ARM
+TOOLCHAIN=LLVM_ARM
 
 ifeq ($(TOOLCHAIN),ARM)
 #   Uncomment after importing the project or set this variable as env variable in the PC.
 #    CY_COMPILER_ARM_DIR=C:/Program Files/ArmCompilerforEmbedded6.22
 endif
 
-MTB_SUPPORTED_TOOLCHAINS?=ARM
-ifneq ($(filter $(TOOLCHAIN),GCC_ARM LLVM_ARM IAR),)
-$(error This Code example supports only Arm compiler)
+MTB_SUPPORTED_TOOLCHAINS?=ARM LLVM_ARM
+ifneq ($(filter $(TOOLCHAIN),GCC_ARM IAR),)
+$(error This Code example supports only Arm and LLVM compiler)
 endif
 
 # Default build configuration. Options include:
@@ -116,5 +116,16 @@ COMBINE_SIGN_JSON?=configs/boot_with_extended_boot.json
 APP_VERSION_MAJOR?=1
 APP_VERSION_MINOR?=0
 APP_VERSION_BUILD?=0
+
+# Normalize backslashes to forward slashes so that make's $(wildcard) works
+CY_COMPILER_LLVM_ARM_DIR:=$(subst \,/,$(CY_COMPILER_LLVM_ARM_DIR))
+
+ifneq ($(CY_COMPILER_LLVM_ARM_DIR),)
+ifeq ($(wildcard $(CY_COMPILER_LLVM_ARM_DIR)/bin),)
+ifneq ($(wildcard $(CY_COMPILER_LLVM_ARM_DIR)/llvm/bin),)
+CY_COMPILER_LLVM_ARM_DIR:=$(CY_COMPILER_LLVM_ARM_DIR)/llvm
+endif
+endif
+endif
 
 include ../common_app.mk

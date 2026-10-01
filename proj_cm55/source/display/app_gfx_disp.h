@@ -48,6 +48,7 @@ extern "C" {
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
+#include "queue.h"
 #include "cyabs_rtos.h"
 #include "cyabs_rtos_impl.h"
 #include "lvgl.h"
@@ -64,10 +65,8 @@ extern "C" {
 extern lv_display_t * disp;
 extern TaskHandle_t rtos_cm55_gfx_task_handle;
 extern char *intent_text;
-extern bool cm55_pipe2_msg_received;
-extern ipc_msg_t *ipc_recv_msg;
-extern volatile uint32_t cm55_ipc_msg_data;
-extern volatile uint32_t cm55_ipc_msg_cmd;
+extern QueueHandle_t cm55_ipc_rx_queue;
+extern volatile uint32_t cm55_ipc_rx_drop_count;
 extern mtb_hal_i2c_t CYBSP_I2C_CONTROLLER_hal_obj;
 
 /*******************************************************************************

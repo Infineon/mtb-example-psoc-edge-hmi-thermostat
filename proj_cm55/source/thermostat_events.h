@@ -51,6 +51,14 @@ extern "C" {
 /*******************************************************************************
  *                                MACROS
  *******************************************************************************/
+#define TEMPERATURE_DEG_C_MAX_VALUE (30U)
+#define TEMPERATURE_DEG_C_MIN_VALUE (14U)
+#define TEMPERATURE_DEG_F_MAX_VALUE  ((30 * 9 / 5) + 32)
+#define TEMPERATURE_DEG_F_MIN_VALUE  ((14 * 9 / 5) + 32)
+#define TEMP_CONVERSION_CORRECTION_FACTOR 0.5
+#define CELSIUS_TO_FAHRENHEIT(c)  ((int)((((float)(c) * 9.0 / 5.0) + 32.0) + TEMP_CONVERSION_CORRECTION_FACTOR))
+#define FAHRENHEIT_TO_CELSIUS(f)  ((int)((((float)(f) - 32.0) * 5.0 / 9.0) + TEMP_CONVERSION_CORRECTION_FACTOR))
+#define DEFAULT_STARTUP_TEMPERATURE    (24U)
 
 /*******************************************************************************
  *                                CONSTANTS
@@ -150,23 +158,25 @@ extern volatile bool hide_conn_screen;
 extern bool is_mic_clicked;
 extern bool voice_popup_state;
 extern volatile bool wifi_popup_state;
+extern volatile bool ble_pairing_popup_visible;
 extern bool fw_update_timeout;
 extern bool is_new_fw_available;
 extern char weather_code_sync_value[8];
 extern bool is_device_provisioned;
-extern volatile bool is_http_fetching;
 extern volatile bool is_first_http_fetch;
 extern char weather_sync_value[32];
 extern char location_sync_value[32];
-extern char hour_sync_value[8];
-extern char minute_sync_value[8];
-extern char second_sync_value[8];
-extern char date_sync_value[8];
-extern char month_sync_value[8];
-extern char vaar_sync_value[8];
-extern char year_sync_value[8];
 extern DateTime rx_datetime;
 extern rtc_time_t now;
+extern int temperature;
+extern int current_temp;
+extern int target_temp;
+extern thermostat_mode_t dev_current_mode;
+extern fan_speed_t dev_fan_mode;
+extern temp_unit_t dev_unit;
+extern uint8_t current_max_temp;
+extern uint8_t current_min_temp;
+extern bool person_detected;
 
 /*******************************************************************************
  *                                FUNCTION PROTOTYPES
@@ -181,13 +191,13 @@ void update_weather_icon(weather_t weather_icon);
 int is_fahrenheit_resolved(void);
 void start_ble_adv(lv_event_t *e);
 void connect_wifi(lv_event_t * e);
-void update_wifi_cred(lv_event_t *e);
 void toggle_mode(lv_event_t * e);
 void update_thermostat_mode(thermostat_mode_t mode);
 void update_device_temp(uint8_t temp);
 void set_thermostat_mode(thermostat_mode_t mode);
 fan_speed_t get_current_fan_mode(void);
 void update_fan_mode(fan_speed_t mode);
+void refresh_fan_mode_ui(fan_speed_t mode);
 void fan_clicked(lv_event_t * e);
 thermostat_mode_t get_current_device_mode(void);
 uint8_t get_current_brigthness(void);
@@ -216,7 +226,6 @@ void auto_reconnect_cb(lv_event_t *e);
 void switch_to_wifi(lv_event_t *e);
 void switch_to_active_screen(void);
 void switch_to_ble(lv_event_t *e);
-void update_date_time_rtc(lv_event_t * e);
 void display_fan_anim(void);
 void stop_fan_anim(void);
 void update_homescreen_connectivity_state(void);
@@ -227,6 +236,7 @@ void ui_timer_init(void);
 void ui_timer_stop(void);
 void ui_timer_start(void);
 void hide_connectivity_screen(void);
+void dismiss_connectivity_popups(void);
 void switchDescMessagecb(lv_timer_t * timer);
 void setDescArc(void);
 void setDescLeftPanel(void);
@@ -236,12 +246,15 @@ void setDescPresence(void);
 void descHideAll(void);
 void nextDescription(void);
 void toggleTutorial(void);
-void update_date_via_http(void);
+void http_sync_complete(void);
+void http_sync_failed(void);
 void sync_ui_via_rtc(void);
-void sync_ui_via_http(int year, int month, int day, int hour, int minute, int second);
 void sync_ui_via_ble_or_mqtt(DateTime rx_datetime);
 void handle_http_factory_reset(void);
-static void hide_popup_timer_cb(lv_timer_t *timer);
+void start_active_state_timer(uint32_t timeout_ms);
+void stop_active_state_timer(void);
+
+void display_ble_pairing_window(bool hide, char *code);
 #ifdef __cplusplus
 }
 #endif

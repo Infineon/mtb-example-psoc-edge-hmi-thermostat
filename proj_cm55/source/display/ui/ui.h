@@ -165,11 +165,9 @@ LV_IMG_DECLARE(ui_img_img_46_png);    // assets/IMG_46.png
 LV_IMG_DECLARE(ui_img_img_47_png);    // assets/IMG_47.png
 LV_IMG_DECLARE(ui_img_img_48_png);    // assets/IMG_48.png
 LV_IMG_DECLARE(ui_img_img_49_png);    // assets/IMG_49.png
-LV_IMG_DECLARE(ui_img_img_50_png);    // assets/IMG_50.png
 
 LV_IMG_DECLARE(ui_img_skiptutorial_png);    // assets/skipTutorial.png
 LV_IMG_DECLARE(ui_img_descriptionpanel_png);    // assets/descriptionPanel.png
-LV_IMG_DECLARE(ui_img_descriptionpanelnt_png);    // assets/descriptionPanel.png
 LV_IMG_DECLARE(ui_img_arrowsmall_png);    // assets/arrowSmall.png
 LV_IMG_DECLARE(ui_img_arrowlong_png);    // assets/arrowSmall.png
 

@@ -1,7 +1,8 @@
 /*******************************************************************************
  * File Name:   wireless_manager.h
  *
- * Description: Header file for managing BLE and Wi-Fi functionalities.
+ * Description: Header file for the common connectivity interface
+ *              coordinating BLE, Wi-Fi, and cloud connection state.
  *
  *******************************************************************************
 * (c) 2021-2026, Infineon Technologies AG, or an affiliate of Infineon
@@ -44,15 +45,6 @@ extern "C" {
  *                                INCLUDES
  *****************************************************************************/
 #include "retarget_io_init.h"
-#include "wiced_bt_dev.h"
-#include "wiced_bt_ble.h"
-#include "wiced_bt_gatt.h"
-#include "cycfg_bt_settings.h"
-#include "cycfg_gap.h"
-#include "cybsp_bt_config.h"
-#include "wiced_bt_stack.h"
-#include "cycfg_gatt_db.h"
-#include "wiced_memory.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "cyabs_rtos.h"
@@ -63,7 +55,6 @@ extern "C" {
 #include "cy_time.h"
 #include "cy_wcm.h"
 #include "wifi_task.h"
-#include "app_utils.h"
 #include "app_common.h"
 
 /* Maximum number of connection retries for wireless network. */
@@ -89,35 +80,17 @@ typedef enum
 } connectivity_state_t;
 
 
-extern uint16_t conn_id;
-extern uint8_t is_gatt_congested;
-
 cy_rslt_t wirelessdevice_init(void);
-cy_rslt_t wifi_init(void);
-cy_rslt_t wifi_disconnect(void);
-cy_rslt_t ble_deinit(void);
-cy_rslt_t ble_init(void);
-bool wifi_get_status(void);
-bool get_ble_connection_status(void);
 bool get_device_provision_state();
-void wifi_get_macaddr(uint8_t *mac);
-void delete_wifi_credential(void);
-void ble_disconnect(void);
-void ble_stop_advertising(void);
-void app_bt_send_message(char *data, size_t data_len);
 void handle_connectivity_state(connectivity_state_t state);
 void set_retry_state(connectivity_interface_t interface, connection_retries_t retry_state);
 void update_ui_connectivity_status(void);
 connection_retries_t get_retry_state(connectivity_interface_t interface);
-wiced_result_t ble_start_advertising(wiced_bt_ble_advert_mode_t mode);
 
-extern TaskHandle_t wifi_task_handle;
-extern uint8_t ble_name[MAX_LEN_GAP_DEVICE_NAME+1];
 extern bool device_provisioned;
 extern bool is_wifi_cred_need_to_update;
 extern bool is_wifi_connection_cancel;
 extern bool is_cloud_connection_cancel;
-extern uint8_t wifi_mac[6];
 extern bool update_credential;
 extern ipc_msg_t *ipc_recv_msg;
 extern char current_fw_version[MAX_FW_VERSION_LEN];

@@ -89,10 +89,12 @@ __STATIC_INLINE void handle_app_error(void)
 {
    /* Disable all interrupts. */
    __disable_irq();
-   printf("handle_app_error\n");
+   printf("handle_app_error \n");
 
-   /* Perform software reset */
-   NVIC_SystemReset();
+   CY_ASSERT(0);
+
+   /* Infinite loop */
+    while(true);
 }
 
 #ifdef __cplusplus

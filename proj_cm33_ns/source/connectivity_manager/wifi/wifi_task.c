@@ -39,6 +39,8 @@
 
 #include "wifi_task.h"
 #include "app_ui_receiver.h"
+#include "secure_http_client.h"
+#include "app_bt_gatt_handler.h"
 
 #define SCAN_DATA_HEADER                            (2U)
 #define MASK_8BITS                                  0x000000ff
@@ -64,8 +66,20 @@ cy_wcm_connect_params_t wifi_conn_param;
  */
 wifi_details_t wifi_details;
 
+/* WiFi credentials received over BLE, pending validation/storage */
+wifi_details_t wifi_cred;
+
+/* Task Handle for WiFi Task */
+TaskHandle_t wifi_task_handle;
+
+uint8_t wifi_mac[6] = {0};
+
 bool is_wifi_cred_need_to_update = false;
 bool is_wifi_connection_cancel = false;
+
+/* Set while the AP-connect retry loop pauses for a pending BLE scan request;
+ * scan_callback() clears it and resumes the retry once the scan completes */
+static volatile bool wifi_retry_paused_for_scan = false;
 
 static mtb_hal_sdio_t sdio_instance;
 static cy_stc_sd_host_context_t sdhc_host_context;
@@ -90,10 +104,6 @@ static void scan_callback(cy_wcm_scan_result_t *result_ptr, void *user_data,
                    cy_wcm_scan_status_t status);
 
 static int start_wifi_scanning(void *notifiedvalue, cy_wcm_scan_filter_t *filter);
-
-static bool is_credentials_changed(void);
-
-static void is_credentials_need_store(void);
 /*******************************************************************************
  *                          FUNCTION DEFINITIONS
  *****************************************************************************/
@@ -148,6 +158,12 @@ static void wifi_event_callback(cy_wcm_event_t event, cy_wcm_event_data_t *event
 
         case CY_WCM_EVENT_CONNECTED:
             update_conn_state(DEV_ST_WIFI_CONNECTED);
+            /* Wake the HTTPS task so it retries immediately instead of waiting
+             * up to HTTPS_CLIENT_TASK_DELAY_MS on a fresh/new AP connection. */
+            if (https_task_handle != NULL)
+            {
+                xTaskNotifyGive(https_task_handle);
+            }
             LOG_INFO(CYLF_DEF, "<<<<<<<<<<<<<WIFI>>>>>>>>>>>>>: Connected to AP.\n");
             break;
 
@@ -158,6 +174,12 @@ static void wifi_event_callback(cy_wcm_event_t event, cy_wcm_event_data_t *event
         case CY_WCM_EVENT_RECONNECTED:
             handle_connectivity_state(STATE_WIFI_CONNECTED);
             update_conn_state(DEV_ST_WIFI_CONNECTED);
+            /* Wake the HTTPS task so it retries immediately instead of waiting
+             * up to HTTPS_CLIENT_TASK_DELAY_MS after Wi-Fi reconnects. */
+            if (https_task_handle != NULL)
+            {
+                xTaskNotifyGive(https_task_handle);
+            }
             vTaskDelay(2000);
             mqtt_task_cmd_t mqtt_task_cmd = HANDLE_DISCONNECTION;
             xQueueSend(mqtt_task_q, &mqtt_task_cmd, portMAX_DELAY);
@@ -309,80 +331,6 @@ cy_rslt_t wcm_init()
 }
 
 /*******************************************************************************
-* Function Name: is_credentials_changed
-********************************************************************************
-* Summary:
-*  Checks if Wi-Fi credentials have changed compared to stored NVM values.
-*
-* Parameters:
-*  void
-*
-* Return:
-*  bool - true if credentials have changed.
-*
-*******************************************************************************/
-static bool is_credentials_changed(void)
-{
-    cy_rslt_t nvm_result;
-    wifi_details_t nvm_wifi_details;
-
-    /* Read data from NVM if present */
-    nvm_result =  Cy_RRAM_NvmReadByteArray(RRAMC0,
-                                              APP_RRAM_NVM_MAIN_NS_START + RRAM_NVM_WIFI_CRED_OFFSET,
-                                              ( uint8_t *)&nvm_wifi_details.wifi_ssid[0], sizeof(nvm_wifi_details) );
-    if(CY_RRAM_SUCCESS == nvm_result)
-    {
-        if(strncmp((const char *)&nvm_wifi_details.wifi_ssid[0], (const char *)&wifi_details.wifi_ssid[0], sizeof(wifi_details)) != 0)
-        {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-/*******************************************************************************
-* Function Name: is_credentials_need_store
-********************************************************************************
-* Summary:
-*  Stores Wi-Fi credentials to NVM if they have changed.
-*
-* Parameters:
-*  void
-*
-* Return:
-*  void
-*
-*******************************************************************************/
-static void is_credentials_need_store(void)
-{
-    cy_rslt_t nvm_result;
-    wifi_details_t nvm_wifi_details;
-    
-    if(is_credentials_changed())
-    {
-        nvm_result =  Cy_RRAM_WriteByteArray(RRAMC0, 
-                                                  APP_RRAM_NVM_MAIN_NS_START + RRAM_NVM_WIFI_CRED_OFFSET,
-                                                  &wifi_details.wifi_ssid[0],sizeof(wifi_details) );
-        if (CY_RRAM_SUCCESS != nvm_result)
-        {
-            LOG_ERROR(CYLF_DEF, "Failed to write to NVM \n");
-        }
-        else
-        {
-            device_provisioned = true;
-            update_provision_state(device_provisioned);
-            vTaskDelay(100);
-            LOG_INFO(CYLF_DEF, "Stored WiFi credentials in NVM.\n");
-        }
-    }
-    else
-    {        
-        LOG_INFO(CYLF_DEF, "No need to update wifi credentials.\n");
-    }
-}
-
-/*******************************************************************************
 * Function Name: wifi_task
 ********************************************************************************
 * Summary:
@@ -456,7 +404,7 @@ void wifi_task(void * arg)
                 if(CY_RSLT_WCM_SCAN_IN_PROGRESS == start_wifi_scanning(&ulNotifiedValue, &scan_filter))
                 {
                     LOG_INFO(CYLF_DEF, "Scan is already in progress, then try to connect with Wifi......\r\n");
-                    xTaskNotifyFromISR(wifi_task_handle, NOTIF_CONNECT, eSetValueWithOverwrite, NULL);
+                    xTaskNotify(wifi_task_handle, NOTIF_CONNECT, eSetValueWithOverwrite);
                 }
             }
             /* Else start scan without any filter */
@@ -465,7 +413,7 @@ void wifi_task(void * arg)
                 if(CY_RSLT_WCM_SCAN_IN_PROGRESS == start_wifi_scanning(&ulNotifiedValue, NULL))
                 {
                     LOG_INFO(CYLF_DEF, "Scan is already in progress, then try to connect with Wifi......\r\n");
-                    xTaskNotifyFromISR(wifi_task_handle, NOTIF_CONNECT, eSetValueWithOverwrite, NULL);
+                    xTaskNotify(wifi_task_handle, NOTIF_CONNECT, eSetValueWithOverwrite);
                 }
             }
         }
@@ -481,27 +429,88 @@ void wifi_task(void * arg)
             if( (cy_wcm_is_connected_to_ap() == true) && (!is_credentials_changed()) )
             {
                  mqtt_task_cmd_t mqtt_task_cmd = HANDLE_CONNECT;
+
+                 /* Keep state machine consistent with the fresh-join path
+                  * so it reflects Wi-Fi connected before the MQTT attempt.
+                  * (No update_conn_state() here - it shares a single-slot IPC
+                  * dedupe cache with other conn-state UI updates such as BLE
+                  * advertising, and racing with those clobbers the UI.) */
+                 handle_connectivity_state(STATE_WIFI_CONNECTED);
+
+                 LOG_INFO(CYLF_DEF, "Wi-Fi is already connected using the given credentials.\r\n");
+
                  xQueueSend(mqtt_task_q, &mqtt_task_cmd, portMAX_DELAY);
 
-                 LOG_INFO(CYLF_DEF, "As Wi-Fi is already connected using the given credentials.\r\n");
+                 /* Update GATT DB about connection */
+                 app_custom_service_wifi_control[0] = WIFI_CONTROL_CONNECT;
+
+                 /* Check if the connection is active and notifications are
+                  * enabled and then send the notification
+                  */
+                 if ((conn_id) &&
+                    ((app_custom_service_wifi_control_client_char_config[0] &
+                      GATT_CLIENT_CONFIG_NOTIFICATION)))
+                 {
+                     uint8_t *p_attr = (uint8_t*)app_custom_service_wifi_control;
+
+                     /* Wait if GATT congestion flag enabled. */
+                     while (is_gatt_congested);
+
+                     wiced_bt_gatt_server_send_notification(conn_id,
+                                     HDLC_CUSTOM_SERVICE_WIFI_CONTROL_VALUE,
+                                     sizeof(app_custom_service_wifi_control[0]),
+                                     p_attr, NULL);
+
+                     /* Wait for GATT congestion to clear */
+                     while (is_gatt_congested);
+                 }
+
                  continue;
             }
             /* Join the Wi-Fi AP */
             result = CY_RSLT_TYPE_ERROR;
+            wifi_retry_paused_for_scan = false;
 
             while((CY_RSLT_SUCCESS != result)
                     && ((get_retry_state(WIFI_INTERFACE) == WIFI_CONN_RETRY_INFINITE) || (conn_retries++ < MAX_CONNECTION_RETRIES))
                     && (!is_wifi_connection_cancel))
             {
+                /* Peek (non-destructive) for a pending BLE scan request - either a
+                 * standalone "list networks" scan, or a fresh connect request with
+                 * new credentials (which always re-scans for its SSID first). Checked
+                 * before touching wifi_conn_param so a credential update that lands
+                 * during the previous attempt's retry delay can't be picked up half
+                 * paired with the old AP's scan-derived security/BSSID.
+                 * Uses ulTaskNotifyValueClear() rather than xTaskNotifyWait(), since the
+                 * latter clears the pending notification state even with 0 clear-masks. */
+                uint32_t pending_notif = ulTaskNotifyValueClear(NULL, 0);
+
+                if (NOTIF_SCAN & pending_notif)
+                {
+                    LOG_INFO(CYLF_DEF, "Pausing AP-connect retry for a pending BLE scan request.\n");
+                    wifi_retry_paused_for_scan = true;
+                    break;
+                }
+
                 LOG_INFO(CYLF_DEF, "Trying to connect SSID: %s at %s\n",
                         wifi_conn_param.ap_credentials.SSID,
                         __FUNCTION__);
                 
                 /* Connect to the given AP */
                 result = cy_wcm_connect_ap(&wifi_conn_param, &ip_address);
+
+                if (CY_RSLT_SUCCESS != result)
+                {
+                    vTaskDelay(pdMS_TO_TICKS(500));
+                }
             }
 
-            if(CY_RSLT_SUCCESS == result)
+            if (wifi_retry_paused_for_scan)
+            {
+                /* Nothing to report yet - scan_callback() reposts NOTIF_CONNECT once
+                 * the pending scan finishes, which resumes this loop from the top. */
+            }
+            else if(CY_RSLT_SUCCESS == result)
             {
                 CHECK_WIFI_CONNECTION_NEED_TO_CANCEL;
 
@@ -732,7 +741,6 @@ cy_rslt_t wifi_connect(void)
     cy_wcm_ip_address_t ip_address;
     cy_rslt_t result = CY_RSLT_TYPE_ERROR;
     uint8_t conn_retries = 0;
-    uint32_t ulNotifiedValue = 0;
 
     handle_connectivity_state(STATE_WIFI_CONNECTING);
 
@@ -745,7 +753,7 @@ cy_rslt_t wifi_connect(void)
     wifi_conn_param.itwt_profile = CY_WCM_ITWT_PROFILE_NONE;
 
     while((CY_RSLT_SUCCESS != result)
-            && ((get_retry_state(WIFI_INTERFACE) == WIFI_CONN_RETRY_INFINITE) || (conn_retries++ < MAX_CONNECTION_RETRIES))
+            && ((get_retry_state(WIFI_INTERFACE) == WIFI_CONN_RETRY_INFINITE) || (conn_retries < MAX_CONNECTION_RETRIES))
             && (!is_wifi_connection_cancel))
     {
         LOG_INFO(CYLF_DEF, "Trying to connect SSID: %s at %s\n",
@@ -793,40 +801,51 @@ static void scan_callback(cy_wcm_scan_result_t *result_ptr, void *user_data,
 
     if ((ssid_len != 0) && (CY_WCM_SCAN_INCOMPLETE == status))
     {
-        wifi_conn_param.ap_credentials.security = result_ptr->security;
+        /* Only record security/BSSID for a connect-intent (SSID-filtered) scan;
+         * an unfiltered "list networks" scan must not clobber the connect params
+         * mid-retry with an unrelated AP's fields */
+        if (NOTIF_CONNECT & *(uint32_t *) user_data)
+        {
+            wifi_conn_param.ap_credentials.security = result_ptr->security;
+            /* Carry over the BSSID found during scan so cy_wcm_connect_ap() can join
+             * this specific AP directly instead of re-scanning for the SSID */
+            memcpy(wifi_conn_param.BSSID, result_ptr->BSSID, CY_WCM_MAC_ADDR_LEN);
+        }
         LOG_DEBUG(CYLF_DEF, "%-32s\t", result_ptr->SSID);
         LOG_DEBUG(CYLF_DEF, "%s\n", get_wifi_security_name(result_ptr->security));
 
         /* If scan bit is set then send the scan result to the BLE Client */
         if(NOTIF_SCAN == *(uint32_t *) user_data)
         {
-            /* Get memory for the buffer to send the scan data */
-            scan_data = (uint8_t *)wiced_bt_get_buffer(SCAN_DATA_HEADER + ssid_len + SCAN_DATA_HEADER + sizeof(uint32_t));
-            if(NULL == scan_data)
-            {
-                LOG_INFO(CYLF_DEF, "Buffer for notification not allocated\n");
-                return;
-            }
-            /* Fill in the SSID first */
-            scan_data[byte_no++] = SCAN_PACKET_TYPE_SSID;
-            scan_data[byte_no++] = ssid_len;
-            memcpy(&scan_data[byte_no], (const char *)result_ptr->SSID, ssid_len);
-            byte_no = byte_no + ssid_len;
 
-            /* Fill in the 4 bytes of security value */
-            scan_data[byte_no++] = SCAN_PACKET_TYPE_SECURITY;
-            scan_data[byte_no++] = sizeof(uint32_t);
-            scan_data[byte_no++] = (uint8_t)(result_ptr->security & MASK_8BITS);
-            scan_data[byte_no++] = (uint8_t)((result_ptr->security &
-                                              MASK_16BITS) >> SHIFT_8BITS);
-            scan_data[byte_no++] = (uint8_t)((result_ptr->security &
-                                              MASK_24BITS) >> SHIFT_16BITS);
-            scan_data[byte_no++] = (uint8_t)((result_ptr->security &
-                                              MASK_32BITS) >> SHIFT_24BITS);
             if ((conn_id != 0) &&
                 (app_custom_service_wifi_networks_client_char_config[0] &
                 GATT_CLIENT_CONFIG_NOTIFICATION))
             {
+                /* Get memory for the buffer to send the scan data */
+                scan_data = (uint8_t *)wiced_bt_get_buffer(SCAN_DATA_HEADER + ssid_len + SCAN_DATA_HEADER + sizeof(uint32_t));
+                if(NULL == scan_data)
+                {
+                    LOG_INFO(CYLF_DEF, "Buffer for notification not allocated\n");
+                    return;
+                }
+                /* Fill in the SSID first */
+                scan_data[byte_no++] = SCAN_PACKET_TYPE_SSID;
+                scan_data[byte_no++] = ssid_len;
+                memcpy(&scan_data[byte_no], (const char *)result_ptr->SSID, ssid_len);
+                byte_no = byte_no + ssid_len;
+
+                /* Fill in the 4 bytes of security value */
+                scan_data[byte_no++] = SCAN_PACKET_TYPE_SECURITY;
+                scan_data[byte_no++] = sizeof(uint32_t);
+                scan_data[byte_no++] = (uint8_t)(result_ptr->security & MASK_8BITS);
+                scan_data[byte_no++] = (uint8_t)((result_ptr->security &
+                                                  MASK_16BITS) >> SHIFT_8BITS);
+                scan_data[byte_no++] = (uint8_t)((result_ptr->security &
+                                                  MASK_24BITS) >> SHIFT_16BITS);
+                scan_data[byte_no++] = (uint8_t)((result_ptr->security &
+                                                  MASK_32BITS) >> SHIFT_24BITS);
+
                 /* Wait if GATT congestion flag enabled. */
                 while (is_gatt_congested);
 
@@ -846,7 +865,14 @@ static void scan_callback(cy_wcm_scan_result_t *result_ptr, void *user_data,
     if ((CY_WCM_SCAN_COMPLETE == status) && ((NOTIF_SCAN | NOTIF_CONNECT) ==
                                               *(uint32_t *) user_data))
     {
-        xTaskNotifyFromISR(wifi_task_handle, NOTIF_CONNECT, eSetValueWithOverwrite, NULL);
+        xTaskNotify(wifi_task_handle, NOTIF_CONNECT, eSetValueWithOverwrite);
+    }
+    /* Standalone scan completed - resume an AP-connect retry that paused for it */
+    else if ((CY_WCM_SCAN_COMPLETE == status) && (NOTIF_SCAN == *(uint32_t *) user_data)
+            && wifi_retry_paused_for_scan)
+    {
+        wifi_retry_paused_for_scan = false;
+        xTaskNotify(wifi_task_handle, NOTIF_CONNECT, eSetBits);
     }
 }
 
@@ -857,11 +883,11 @@ static void scan_callback(cy_wcm_scan_result_t *result_ptr, void *user_data,
 *  Initiates a Wi-Fi scan operation.
 *
 * Parameters:
-*  notifiedvalue - Pointer to notification value for scan callback.
-*  filter - Pointer to scan filter, or NULL for unfiltered scan.
-*
-* Return:
-*  int - CY_RSLT_SUCCESS on success, error code otherwise.
+ *  notifiedvalue - Pointer to notification value for scan callback.
+ *  filter - Pointer to scan filter, or NULL for unfiltered scan.
+ *
+ * Return:
+ *  int - CY_RSLT_SUCCESS on success, error code otherwise.
 *
 *******************************************************************************/
 static int start_wifi_scanning(void *notifiedvalue, cy_wcm_scan_filter_t *filter)
@@ -879,40 +905,5 @@ static int start_wifi_scanning(void *notifiedvalue, cy_wcm_scan_filter_t *filter
     return result;
 }
 
-/*******************************************************************************
-* Function Name: is_wifi_connected
-********************************************************************************
-* Summary:
-*  Returns whether the device is currently connected to a Wi-Fi AP.
-*
-* Parameters:
-*  void
-*
-* Return:
-*  bool - true if connected to AP.
-*
-*******************************************************************************/
-bool is_wifi_connected(void)
-{
-    return cy_wcm_is_connected_to_ap();
-}
-
-/*******************************************************************************
-* Function Name: is_wifi_operation_canceled
-********************************************************************************
-* Summary:
-*  Returns whether the current Wi-Fi operation has been canceled.
-*
-* Parameters:
-*  void
-*
-* Return:
-*  bool - true if Wi-Fi operation was canceled.
-*
-*******************************************************************************/
-bool is_wifi_operation_canceled(void)
-{
-    return is_wifi_connection_cancel;
-}
 /* [] END OF FILE */
 

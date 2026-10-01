@@ -1,12 +1,10 @@
-/******************************************************************************
-* File Name:   app_utils.h
-*
-* Description: This file contains macros and utility function prototypes that 
-*              make debugging and application development easier. 
-*
-* Related Document: See Readme.md
-*
-*******************************************************************************
+/*******************************************************************************
+ * File Name:   app_bt_gatt_handler.h
+ *
+ * Description: Public interface for the GATT server event handling and BLE
+ *              provisioning data transfer implemented in app_bt_gatt_handler.c.
+ *
+ *******************************************************************************
 * (c) 2021-2026, Infineon Technologies AG, or an affiliate of Infineon
 * Technologies AG. All rights reserved.
 * This software, associated documentation and materials ("Software") is
@@ -34,45 +32,49 @@
 * explicitly approved by Infineon, the Software may not be used in any
 * application where a failure of the Product or any consequences of the use
 * thereof can reasonably be expected to result in personal injury.
-*******************************************************************************/
+ *******************************************************************************/
 
-#ifndef __APP_UTILS_H__
-#define __APP_UTILS_H__
+#ifndef APP_BT_GATT_HANDLER_H_
+#define APP_BT_GATT_HANDLER_H_
 
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-/******************************************************************************
- * INCLUDES
- ******************************************************************************/
+/*******************************************************************************
+ *                                INCLUDES
+ *****************************************************************************/
 #include "wiced_bt_dev.h"
 #include "wiced_bt_gatt.h"
-#include "cy_wcm.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
-/******************************************************************************
- * Constants
- ******************************************************************************/
-#define CASE_RETURN_STR(enum_val)          case enum_val: return #enum_val;
-#define CASE_DEFAULT_STR default: printf( "%s: default case\n", __FUNCTION__ ); break;
+/*******************************************************************************
+ *                              GLOBAL VARIABLES
+ *****************************************************************************/
+/* Maintains the connection id of the current connection */
+extern uint16_t conn_id;
 
-/****************************************************************************
- * FUNCTION DECLARATIONS
- ***************************************************************************/
-void print_bd_address(wiced_bt_device_address_t bdadr);
-const char *get_btm_event_name(wiced_bt_management_evt_t event);
-const char *get_bt_advert_mode_name(wiced_bt_ble_advert_mode_t mode);
-const char *get_bt_gatt_disconn_reason_name(wiced_bt_gatt_disconn_reason_t
-                                            reason);
-const char *get_bt_gatt_status_name(wiced_bt_gatt_status_t status);
-const char *get_bt_gatt_evt_name(wiced_bt_gatt_evt_t event);
-const char *get_wifi_security_name(cy_wcm_security_t name);
+/* Flag to check for GATT congestion */
+extern uint8_t is_gatt_congested;
+
+/* Bluetooth address of the currently connected peer device */
+extern wiced_bt_device_address_t peer_addr;
+
+/* Task handle for the BLE provisioning data sender task */
+extern TaskHandle_t prov_data_task_handle;
+
+/*******************************************************************************
+ *                          FUNCTION PROTOTYPES
+ *****************************************************************************/
+wiced_bt_gatt_status_t app_gatts_callback(wiced_bt_gatt_evt_t event,
+                                          wiced_bt_gatt_event_data_t *p_data);
+void prov_data_task(void *pvParameters);
+void app_bt_send_message(char *data, size_t data_len);
+bool get_ble_connection_status(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif      /* __APP_UTILS_H__ */
-
-
-/* [] END OF FILE */
+#endif /* APP_BT_GATT_HANDLER_H_ */

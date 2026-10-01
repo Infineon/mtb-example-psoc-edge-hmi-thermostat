@@ -123,91 +123,16 @@ extern device_state_t device_status;
 /**
  * Functions declarations
  */
-/*******************************************************************************
-* Function Name: parse_received_command
-********************************************************************************
-* Summary:
-* Parses the incoming MQTT message and extracts the command ID and associated parameters.
-*
-* Parameters:
-*  message     - Pointer to the raw JSON-formatted MQTT message (const char*)
-*  message_len - Length of the message in bytes (size_t)
-*
-* Return:
-*  mqtt_parser_errors_e - Status code indicating success or type of parsing error
-*******************************************************************************/
 mqtt_parser_errors_e parse_received_command(const char *message, size_t message_len);
 
-/*******************************************************************************
-* Function Name: send_response_numeric
-********************************************************************************
-* Summary:
-* Sends a response back over MQTT with the specified command, type, and response value.
-*
-* Parameters:
-*  cmd      - Command ID to respond to (mqtt_commandId_e)
-*  type     - Operation type (operation_type_e)
-*  response - Numeric response value (uint32_t)
-*
-* Return:
-*  void
-*******************************************************************************/
 void send_response_numeric(mqtt_commandId_e cmd, operation_type_e type, uint32_t response);
 
-/*******************************************************************************
-* Function Name: handle_pairingremove_command
-********************************************************************************
-* Summary:
-* Handles the DEVICE_PAIRING_DISCONNECT command to unpair or reset Bluetooth/Wi-Fi pairing.
-*
-* Parameters:
-*  only_wifi - If true, only Wi-Fi pairing is removed (bool)
-*
-* Return:
-*  void
-*******************************************************************************/
 void handle_pairingremove_command(bool only_wifi);
 
-/*******************************************************************************
-* Function Name: update_comm_interface
-********************************************************************************
-* Summary:
-* Updates the current interface used for communication with the mobile app.
-*
-* Parameters:
-*  void
-*
-* Return:
-*  void
-*******************************************************************************/
 void update_comm_interface(void);
 
-/*******************************************************************************
-* Function Name: send_device_config_info
-********************************************************************************
-* Summary:
-* Sends the current device configuration information over MQTT.
-*
-* Parameters:
-*  void
-*
-* Return:
-*  void
-*******************************************************************************/
 void send_device_config_info(void);
 
-/*******************************************************************************
-* Function Name: handle_firmwareupdateprogress_command
-********************************************************************************
-* Summary:
-* Processes the FIRMWARE_UPDATE_PROGRESS command to send update progress details.
-*
-* Parameters:
-*  per - Firmware update progress percentage (uint8_t)
-*
-* Return:
-*  void
-*******************************************************************************/
 void handle_firmwareupdateprogress_command(uint8_t per);
 
 #ifdef __cplusplus

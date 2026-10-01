@@ -99,60 +99,12 @@ extern mqtttopic_t mqtt_topics[NUMBERS_OF_TOPIC];
 /*******************************************************************************
  *                          FUNCTION PROTOTYPES
  *****************************************************************************/
-/*******************************************************************************
-* Function Name: mqtt_client_task
-********************************************************************************
-* Summary:
-* Initializes and runs the MQTT client task to handle communication with the broker.
-*
-* Parameters:
-*  pvParameters - Pointer to task parameters (void*)
-*
-* Return:
-*  void
-*******************************************************************************/
 void mqtt_client_task(void *pvParameters);
 
-/*******************************************************************************
-* Function Name: cleanup_mqtt
-********************************************************************************
-* Summary:
-* Cleans up MQTT resources and gracefully shuts down the MQTT client.
-*
-* Parameters:
-*  void
-*
-* Return:
-*  void
-*******************************************************************************/
 void cleanup_mqtt(void);
 
-/*******************************************************************************
-* Function Name: get_mqtt_status
-********************************************************************************
-* Summary:
-* Retrieves the current status of the MQTT connection.
-*
-* Parameters:
-*  void
-*
-* Return:
-*  uint32_t - MQTT status code
-*******************************************************************************/
 uint32_t get_mqtt_status(void);
 
-/*******************************************************************************
-* Function Name: mqtt_disconnect
-********************************************************************************
-* Summary:
-* Disconnects the MQTT client from the broker.
-*
-* Parameters:
-*  void
-*
-* Return:
-*  void
-*******************************************************************************/
 void mqtt_disconnect(void);
 
 #ifdef __cplusplus

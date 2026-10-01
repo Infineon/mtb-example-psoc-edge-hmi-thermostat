@@ -92,16 +92,30 @@ extern "C" {
 /*******************************************************************************
 * Enumeration
 *******************************************************************************/
-/* IPC Message structure */
-/* Pointer to this structure will be shared through IPC Pipe */
+/* IPC Message structure - CM55 -> CM33 direction.
+ * Pointer to this structure will be shared through IPC Pipe.
+ * device_config used to be a permanent field present in every message of this
+ * type (even ones that never touch it, e.g. a plain conn-state scalar), which
+ * wasted ~120 bytes per message. Folding it into the union is safe because on
+ * THIS (CM55 -> CM33) path the union is only ever populated with device_config
+ * OR wifi_info - each in its own send function in proj_cm55 comm_manager.c
+ * (send_device_config / update_temperature_data_ipc set device_config;
+ * update_wifi_cred_ipc sets wifi_info), each fully repopulating the buffer
+ * under cm55_ipc_lock, so no single send writes two members. The CM33 receiver
+ * (proj_cm33_ns app_ui_receiver.c) reads back exactly the member selected by
+ * .cmd (device_config under IPC_CMD_DEVICE_CONFIG / IPC_CMD_SET_TEMPERATURE_DATA,
+ * wifi_info under IPC_CMD_UPDATE_CONN_STATE+DEV_ST_WIFI_CONNECTING), so no
+ * message is ever read through the wrong arm. char_value/datetime/unique_id are
+ * NOT used on this path at all - they belong to the CM33 -> CM55 struct below,
+ * which has no device_config, so a char_value send cannot alias device_config.
+ * Full read/write audit attached to the MR. */
 typedef struct
 {
     uint8_t     client_id;
     uint16_t    intr_mask;
     uint8_t     cmd;
+    uint8_t     data_len;
     int         data;
-    uint8_t        data_len;
-    device_state_t device_config;
 
     union {
         wifi_credentials_t    wifi_info;
@@ -110,19 +124,56 @@ typedef struct
         DateTime datetime;
         char fw_version[MAX_FW_VERSION_LEN];
         char char_value[32];       /* Used for single character values */
+        device_state_t device_config;
     };
 
 } ipc_msg_t;
+
+/* IPC Message structure - CM33 -> CM55 direction only.
+ * This direction never carries wifi/ble/device_config payloads (audited: only
+ * unique_id, DateTime and short char_value strings cross this way), so it is
+ * kept as its own, much smaller struct instead of sharing ipc_msg_t. Word 0
+ * (client_id + intr_mask) is byte-for-byte identical in position to ipc_msg_t
+ * above - required by the PDL pipe, which reads/writes that word directly. */
+typedef struct
+{
+    uint8_t     client_id;
+    uint16_t    intr_mask;
+    uint8_t     cmd;
+    uint8_t     data_len;
+    int         data;
+
+    union {
+        char unique_id[13];        /* Unique id created using MAC addr. */
+        DateTime datetime;
+        char char_value[32];       /* Used for single character values */
+    };
+
+} ipc_msg_cm33_to_cm55_t;
 
 /*******************************************************************************
 * Function prototypes
 *******************************************************************************/
 void cm33_ipc_communication_setup(void);
 void cm33_ipc_pipe_isr(void);
-int cm33_send_msg_cm55(ipc_msg_t *msg);
+/* Must be called only while holding cm33_ipc_lock() (that returned true): on a
+ * pipe-send error it gives cm33_ipc_send_done_sem back, which pairs with the
+ * take done in cm33_ipc_lock(). Calling it unlocked leaves a spurious give and
+ * corrupts the buffer-handshake count. */
+int cm33_send_msg_cm55(ipc_msg_cm33_to_cm55_t *msg);
+/* Hold across a shared cm33_msg_data field-populate + cm33_send_msg_cm55 call
+ * so two CM33 tasks can never interleave writes into the single shared
+ * message buffer. Recursive: safe to call even though cm33_send_msg_cm55
+ * also takes this lock internally. Returns false if the buffer could not be
+ * acquired before the timeout (CM55 still reading the previous message); the
+ * caller must then NOT populate/send and must NOT call cm33_ipc_unlock(). */
+bool cm33_ipc_lock(void);
+void cm33_ipc_unlock(void);
 void cm55_ipc_communication_setup(void);
 void cm55_ipc_pipe_isr(void);
 int cm55_send_msg_cm33(ipc_msg_t *msg);
+bool cm55_ipc_lock(void);
+void cm55_ipc_unlock(void);
 
 #ifdef __cplusplus
 }

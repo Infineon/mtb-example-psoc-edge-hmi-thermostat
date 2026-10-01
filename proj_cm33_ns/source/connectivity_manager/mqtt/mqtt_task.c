@@ -39,6 +39,7 @@
 * application where a failure of the Product or any consequences of the use
 * thereof can reasonably be expected to result in personal injury.
  *******************************************************************************/
+#include <stdbool.h>
 #include "cybsp.h"
 
 /* FreeRTOS header files */
@@ -68,7 +69,9 @@
 #include "wireless_manager.h"
 #include "mqtt/mqtt_command_handler.h"
 #include "wifi_task.h"
-#include <stdbool.h>
+#include "app_bt_bonding.h"
+#include "app_bt_event_handler.h"
+#include "app_bt_gatt_handler.h"
 /*******************************************************************************
  *                                MACROS
  *****************************************************************************/
@@ -377,7 +380,16 @@ static cy_rslt_t mqtt_connect(void)
     cy_rslt_t result = CY_RSLT_SUCCESS;
     bool mqtt_conn_status;
     uint8_t conn_retries = 0;
-    
+
+    /* Broker endpoint is still the unedited placeholder - skip connecting/
+     * retrying since it can never succeed. */
+    if (0 == strcmp(broker_info.hostname, "ENTER_BROKER_ENDPOINT_HERE"))
+    {
+        LOG_ERROR(CYLF_DEF, "\nMQTT broker endpoint is not configured (placeholder value). "
+               "Skipping MQTT connect.\n\n");
+        return CY_RSLT_TYPE_ERROR;
+    }
+
     if(false == mqtt_init_status)
     {
         result = mqtt_init();
@@ -463,6 +475,7 @@ static cy_rslt_t mqtt_connect(void)
 
         LOG_INFO(CYLF_DEF, "\nMQTT connection failed with error code 0x%0X.\n",
                (int)result);
+
         vTaskDelay(MQTT_CONN_RETRY_INTERVAL_MS);
     }
 
@@ -525,7 +538,6 @@ void mqtt_client_task(void *pvParameters)
      * message queues.
      */
     subscriber_data_t subscriber_q_data;
-    publisher_data_t publisher_q_data;
     cy_rslt_t result = CY_RSLT_SUCCESS;
 
     /* To avoid compiler warnings */
@@ -644,7 +656,11 @@ void mqtt_client_task(void *pvParameters)
                         LOG_INFO(CYLF_DEF, "\nMQTT connect failed with error 0x%0X\n\n",
                                (int)result);
                         update_conn_state(DEV_ST_CLOUD_DISCONNECTED);
-                        }
+
+                        /* Let the app know connect failed instead of leaving it waiting. */
+                        update_comm_interface();
+                        send_response_numeric(DEVICE_STATUS, OPERATION_READ, 0);
+                    }
 
                 }
                 else
@@ -692,6 +708,20 @@ void mqtt_client_task(void *pvParameters)
                                 eSetValueWithOverwrite);
 
                     ble_disconnect();
+
+                    /* Erase persisted BLE bond keys (LTK/IRK) from NVM so the
+                     * device fully forgets the pairing on factory reset. This
+                     * runs in both connected and disconnected states; on the
+                     * next reconnection the peer must perform a fresh secure
+                     * pairing. */
+                    if (CY_RSLT_SUCCESS != app_bt_delete_bond_info())
+                    {
+                        LOG_ERROR(CYLF_DEF, "Failed to erase BLE bond keys from NVM.\n");
+                    }
+                    else
+                    {
+                        LOG_INFO(CYLF_DEF, "BLE bond keys erased from NVM.\n");
+                    }
 
                     /* Clearing this flag as we are removing the Cloud connection */
                     is_cloud_connection_cancel = false;

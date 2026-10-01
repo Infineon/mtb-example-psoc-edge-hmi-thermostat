@@ -537,7 +537,10 @@ The following table highlights the key files in the project and their correspond
 | `shared/include/ipc_communication.h`                          | IPC message enums, structures, API                |
 | `proj_cm33_ns/main.c`                                         | Non-secure main, FreeRTOS task creation, IPC init |
 | `proj_cm33_ns/source/radar/app_radar.c`                       | Presence detection and state machine                |
-| `proj_cm33_ns/source/connectivity_manager/wireless_manager.c` | Wi-Fi and Bluetooth&reg; LE connectivity                  |
+| `proj_cm33_ns/source/connectivity_manager/wireless_manager.c` | Common connectivity interface (BLE, Wi-Fi, cloud state)   |
+| `proj_cm33_ns/source/connectivity_manager/bluetooth/app_bt_event_handler.c` | Bluetooth&reg; LE stack events and pairing            |
+| `proj_cm33_ns/source/connectivity_manager/wifi/wifi_task.c`   | Wi-Fi connection task and scanning                  |
+| `proj_cm33_ns/source/connectivity_manager/comm_manager.c`     | IPC message dispatch from CM33 to CM55              |
 | `proj_cm33_ns/source/connectivity_manager/mqtt/mqtt_task.c`   | MQTT client and telemetry                           |
 | `proj_cm55/main.c`                                            | Main, LVGL init, IPC setup                 |
 | `proj_cm55/source/comm_manager.c`                             | IPC message dispatch to UI and voice handlers       |

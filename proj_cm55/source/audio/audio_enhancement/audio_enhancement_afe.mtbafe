@@ -9,13 +9,13 @@
     "bf": {
         "angle_range_a": 0,
         "angle_range_b": 180,
-        "bf_state": "off",
-        "interference_canceller": "low",
+        "bf_state": "on",
+        "interference_canceller": "high",
         "mic_distance_mm": 25,
         "num_beams": 1
     },
     "dereverberation": {
-        "dereverberation_state": "on"
+        "dereverberation_state": "off"
     },
     "echo_suppression": {
         "echo_suppressor": "low",
@@ -37,7 +37,7 @@
         "software_input_gain_db2": 0
     },
     "lastSavedWith": "Audio Front-End Configurator",
-    "lastSavedWithVersion": "1.60.0",
+    "lastSavedWithVersion": "1.70.0",
     "noise_suppression": {
         "ns_db": 20,
         "ns_state": "on"
@@ -46,7 +46,7 @@
         "use_pc_speaker": "no",
         "use_target_speaker": "no"
     },
-    "toolsPackage": "DEEPCRAFT™ Audio Enhancement Tech Pack 1.1.0",
+    "toolsPackage": "DEEPCRAFT™ Audio Enhancement Tech Pack 1.2.0",
     "uart": {
         "baudrate": 115200,
         "data_bits": 8,

@@ -45,7 +45,6 @@
 #include "cy_retarget_io.h"
 #include "cy_result.h"
 #include "cy_log.h"
-#include "audio_usb_send_utils.h"
 #include "pdm_mic_interface.h"
 #include "app_logger.h"
 #include "app_i2s.h"

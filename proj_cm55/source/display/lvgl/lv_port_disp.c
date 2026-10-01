@@ -90,15 +90,27 @@ static void LV_ATTRIBUTE_FAST_MEM disp_flush(lv_display_t *disp_drv,
 {
     CY_UNUSED_PARAMETER(area);
 
-    Cy_GFXSS_Set_FrameBuffer((GFXSS_Type*) GFXSS, (uint32_t*) color_p,
-            &gfx_context);
-
-    if (ulTaskNotifyTake(pdTRUE, portMAX_DELAY))
+    if (lv_display_flush_is_last(disp_drv))
     {
-        /* Inform the graphics library that you are ready with the flushing */
+        /* The DC ISR notifies on every vsync, so one from a vsync during rendering
+         * is likely already pending. Drop it, otherwise the wait below returns before
+         * the new address is latched and LVGL renders into the buffer being scanned. */
+        ulTaskNotifyTake(pdTRUE, 0);
+
+        Cy_GFXSS_Set_FrameBuffer((GFXSS_Type*) GFXSS, (uint32_t*) color_p,
+                &gfx_context);
+
+        if (ulTaskNotifyTake(pdTRUE, portMAX_DELAY))
+        {
+            /* Inform the graphics library that you are ready with the flushing */
+            lv_display_flush_ready(disp_drv);
+        }
+    }
+    else
+    {
+        /* Not the last dirty area of this frame: no buffer flip/vsync wait needed */
         lv_display_flush_ready(disp_drv);
     }
-
 }
 
 
@@ -148,7 +160,7 @@ void lv_port_disp_init(void)
     lv_tick_set_cb(xTaskGetTickCount);
 
     lv_display_set_buffers(disp, disp_buf1, disp_buf2, sizeof(disp_buf1),
-                           LV_DISPLAY_RENDER_MODE_FULL);
+                           LV_DISPLAY_RENDER_MODE_DIRECT);
 
     /* Set the display resolution to match the physical resolution so that
      * LVGL renders the UI within the limits of the actual display resolution.

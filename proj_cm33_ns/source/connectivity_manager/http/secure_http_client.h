@@ -56,15 +56,18 @@ extern "C" {
  *****************************************************************************/
 #define ERR_INFO(x)                do { printf("Error: "); printf x; } while(0);
 
-#define WEATHER_SERVER_HOST                         "api.open-meteo.com"
-#define WEATHER_PORT                                (80)
+/* IP-based location service (plain HTTP, no API key). */
+#define LOCATION_SERVER_HOST                        "ipwho.is"
+#define LOCATION_SERVER_PORT                        (80)
+#define LOCATION_SERVER_PATH                        "/"
 
-#define GEO_SERVER_HOST                             "ipinfo.io"
-#define GEO_PORT                                    (80)
-#define GEO_PATH                                    "/json"
-
-#define TIMEZONE_SERVER_HOST                        "api.timezonedb.com"
-#define TIMEZONE_PORT                               (80)
+/* Weather sync is skipped while WEATHER_SERVER_HOST is the placeholder. Set the
+ * host and path to your weather service (the path takes latitude then longitude)
+ * and adapt json_weather_cb() in secure_http_client.c to its response. */
+#define WEATHER_SERVER_HOST_PLACEHOLDER             "<your-weather-service-host>"
+#define WEATHER_SERVER_HOST                         WEATHER_SERVER_HOST_PLACEHOLDER
+#define WEATHER_SERVER_PORT                         (80)
+#define WEATHER_PATH_FORMAT                         "/<your-weather-api-path>?latitude=%s&longitude=%s"
 
 #define TRANSPORT_SEND_RECV_TIMEOUT_MS           (10000)
 #define HTTP_GET_BUFFER_LENGTH                   (2048 * 4)

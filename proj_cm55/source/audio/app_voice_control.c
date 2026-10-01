@@ -201,23 +201,6 @@ void handle_va_process_output(va_event_t event)
         }
     }
 }
-/*******************************************************************************
-* Function Name: go_to_sleepmode
-********************************************************************************
-* Summary:
-*  Transitions the UI to the low-power screen.
-*
-* Parameters:
-*  void
-*
-* Return:
-*  void
-*
-*******************************************************************************/
-void go_to_sleepmode()
-{
-    _ui_screen_change(&ui_LPScreen, LV_SCR_LOAD_ANIM_FADE_ON, 230, 0, &ui_LPScreen_screen_init);
-}
 
 /*******************************************************************************
 * Function Name: decrease_screen_brightness
@@ -350,81 +333,14 @@ void go_to_active_screen()
 }
 
 /*******************************************************************************
-* Function Name: disable_fanmode
-********************************************************************************
-* Summary:
-*  Disables fan mode via the UI switch.
-*
-* Parameters:
-*  void
-*
-* Return:
-*  void
-*
-*******************************************************************************/
-void disable_fanmode()
-{
-}
-
-/*******************************************************************************
-* Function Name: enable_fanmode
-********************************************************************************
-* Summary:
-*  Enables fan mode via the UI switch.
-*
-* Parameters:
-*  void
-*
-* Return:
-*  void
-*
-*******************************************************************************/
-void enable_fanmode()
-{
-}
-
-/*******************************************************************************
-* Function Name: set_temperature
-********************************************************************************
-* Summary:
-*  Sets and displays the target temperature value on the UI.
-*
-* Parameters:
-*  value - Pointer to the temperature value to set.
-*
-* Return:
-*  void
-*
-*******************************************************************************/
-void set_temperature(int *value)
-{
-    /* Check if the value pointer is NULL */
-    if (value == NULL) {
-        printf("Error: NULL temperature value provided.\n");
-        return;
-    }
-
-    /* Create a buffer to hold the formatted string */
-    char temp_with_unit[32];
-
-    /* Format the integer value with the "°C" unit */
-    snprintf(temp_with_unit, sizeof(temp_with_unit), "%d°c", *value);
-
-    /* Print for debugging (replace this with your LVGL label update) */
-    printf("Setting temperature: %s\n", temp_with_unit);
-
-    /* Update the LVGL label (example function call) */
-    lv_label_set_text(ui_TemperatureCurrValueLbl, temp_with_unit);
-}
-
-/*******************************************************************************
 * Function Name: handle_VA_command
 ********************************************************************************
 * Summary:
-*  Dispatches a voice assistant command to the appropriate handler.
+*  Processes the active voice assistant command and updates the thermostat
+*  state and user interface as required.
 *
 * Parameters:
-*  timer - Pointer to the LVGL timer that triggered this callback.
+*  timer - LVGL timer context; unused when the command is invoked directly.
 *
 * Return:
 *  void
@@ -801,6 +717,11 @@ va_rslt_t intent_to_ui(const char *command)
             /* Execute command from Active screen */
             if(lv_screen_active() == ui_ActiveScreen)
             {
+                /* Dismiss the connectivity popup if open so the command result is visible */
+                if(popup_overlay_visible)
+                {
+                    switch_to_active_screen();
+                }
                 handle_VA_command(NULL);
                 lv_obj_add_flag(ui_voicecmdcontainer, LV_OBJ_FLAG_HIDDEN);
                 display_fan_anim();
@@ -934,6 +855,7 @@ void voice_assistant_task(void * arg)
     va_rslt_t va_result;
     int16_t *audio_frame;
     int16_t *audio_feed_input;
+
 #ifdef USE_AUDIO_ENHANCEMENT
     ae_rslt_t ae_result;
     uint8_t ae_license_error = 0;

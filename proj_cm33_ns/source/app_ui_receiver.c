@@ -43,6 +43,8 @@
 #include "app_ui_receiver.h"
 #include "connectivity_manager/mqtt/mqtt_command_handler.h"
 #include "connectivity_manager/wireless_manager.h"
+#include "app_bt_event_handler.h"
+#include "app_bt_gatt_handler.h"
 #include "wifi_task.h"
 #include "mqtt_task.h"
 #include "publisher_task.h"
@@ -58,7 +60,6 @@
 
 #define UI_RX_TASK_PRIORITY                     (configMAX_PRIORITIES - 1)
 #define UI_RX_QUEUE_LENGTH                      20U
-#define MAX_CANCEL_PROCCESS_RETRY_COUNT_IN_SEC  15U       
 /*******************************************************************************
  *                              GLOBAL VARIABLES
  ******************************************************************************/
@@ -84,10 +85,11 @@ static void ui_rx_task(void *arg);
  *                              FUNCTION DEFINITIONS
  ******************************************************************************/
 /*******************************************************************************
-* Function Name: get_latet_FW_version
+* Function Name: get_latest_fw_version
 ********************************************************************************
 * Summary:
-*  Publishes a request to get the latest firmware version over MQTT.
+*  Requests the latest firmware version from the cloud and publishes the
+*  request through the MQTT path when the device is connected.
 *
 * Parameters:
 *  void
@@ -96,7 +98,7 @@ static void ui_rx_task(void *arg);
 *  void
 *
 *******************************************************************************/
-void get_latet_FW_version(void)
+void get_latest_fw_version(void)
 {
     char payload[50];
 
@@ -128,13 +130,6 @@ static void ui_rx_task(void *arg)
     (void) arg;
     mqtt_task_cmd_t mqtt_task_cmd;
     ipc_msg_t received_msg = {0};
-
-    /* Create the queue for IPC msg */
-    xUiRxQueue = xQueueCreate(UI_RX_QUEUE_LENGTH, sizeof(ipc_msg_t));
-    if (xUiRxQueue == NULL)
-    {
-        LOG_ERROR(CYLF_DEF, "UI RX Queue creation failed!\n");
-    }
 
     while (1)
     {
@@ -168,6 +163,7 @@ static void ui_rx_task(void *arg)
                 case IPC_CMD_RESET_WIFI_SSID_PASS:
                 {
                     LOG_INFO(CYLF_DEF, "Rx Wi-Fi credential erase request.\n");
+                    is_wifi_connection_cancel = true;
                     set_wifi_switch_disabled();
                     handle_pairingremove_command(true);
 
@@ -224,10 +220,10 @@ static void ui_rx_task(void *arg)
                     static device_state_t prev_data = { 0 };
                     static int32_t last_sent_time_minutes = -1;
             
-                    temp_data.environment.current_temp = ipc_recv_msg->device_config.environment.current_temp;
-                    temp_data.environment.target_temp = ipc_recv_msg->device_config.environment.target_temp;
+                    temp_data.environment.current_temp = received_msg.device_config.environment.current_temp;
+                    temp_data.environment.target_temp = received_msg.device_config.environment.target_temp;
                     temp_data.thermostat_settings.time_remains =
-                        ipc_recv_msg->device_config.thermostat_settings.time_remains;
+                        received_msg.device_config.thermostat_settings.time_remains;
             
                     LOG_INFO(CYLF_DEF, "Current T: %u, Target T: %u, RS: %u\n",
                              temp_data.environment.current_temp,
@@ -239,7 +235,7 @@ static void ui_rx_task(void *arg)
                         prev_data.environment.target_temp = temp_data.environment.target_temp;
                         device_status.environment.target_temp = temp_data.environment.target_temp;
             
-                        /* Send target temperature multiple times to avoid delay on mobile app. */
+                        /* Send the target temperature to the mobile app. */
                         for (int i = 0; i < 1; i++)
                         {
                             send_response_numeric(TARGETED_TEMP, OPERATION_READ,
@@ -343,18 +339,11 @@ static void ui_rx_task(void *arg)
                 {
                     switch ((device_connection_state_t) ui_rx_msg_data)
                     {
-                        uint16_t retry_count = 0;
                         case DEV_ST_CLOUD_CONNECTION_CANCEL:
                         {
                             LOG_INFO(CYLF_DEF, "Rx DEV_ST_CLOUD_CONNECTION_CANCEL.\n");
                             is_cloud_connection_cancel = true;
                             set_wifi_switch_disabled();
-
-                            while (is_cloud_connection_cancel && (retry_count < 10*MAX_CANCEL_PROCCESS_RETRY_COUNT_IN_SEC))
-                            {
-                                vTaskDelay(100);
-                                retry_count++;
-                            }
                             break;
                         }
             
@@ -373,18 +362,11 @@ static void ui_rx_task(void *arg)
                             }
                             else
                             {
-                                LOG_INFO(CYLF_DEF, "DEV_ST_WIFI_CONNECTION_CANCEL: Starting BLE advertising.\n");
-                                handle_connectivity_state(STATE_BLE_ADV);
+                                /* No BLE adv state change here - it caused a wifi/ble UI ping-pong on cancel */
                                 update_comm_interface();
                             }
 
-                            while (is_wifi_connection_cancel && is_wifi_connected() && (retry_count < 10*MAX_CANCEL_PROCCESS_RETRY_COUNT_IN_SEC))
-                            {
-                                vTaskDelay(100);
-                                retry_count++;
-                            }
-                            
-                            xTaskNotifyFromISR(wifi_task_handle, NOTIF_DISCONNECT, eSetValueWithOverwrite, NULL);
+                            xTaskNotify(wifi_task_handle, NOTIF_DISCONNECT, eSetValueWithOverwrite);
                             break;
                         }
             
@@ -394,7 +376,7 @@ static void ui_rx_task(void *arg)
                             ble_stop_advertising();
                             if (get_device_provision_state())
                             {
-                                vTaskDelay(pdMS_TO_TICKS(2500));
+                                vTaskDelay(pdMS_TO_TICKS(100));
                                 update_conn_state(DEV_ST_WIFI_CONNECTING);
                                 xTaskNotify(wifi_task_handle, (NOTIF_SCAN | NOTIF_CONNECT), eSetValueWithOverwrite);
                             }
@@ -420,10 +402,10 @@ static void ui_rx_task(void *arg)
                             wifi_credentials_t info = { 0 };
             
                             /* Safe copy with null termination */
-                            strncpy(info.ssid, ipc_recv_msg->wifi_info.ssid, sizeof(info.ssid) - 1);
+                            strncpy(info.ssid, received_msg.wifi_info.ssid, sizeof(info.ssid) - 1);
                             info.ssid[sizeof(info.ssid) - 1] = '\0';
             
-                            strncpy(info.password, ipc_recv_msg->wifi_info.password, sizeof(info.password) - 1);
+                            strncpy(info.password, received_msg.wifi_info.password, sizeof(info.password) - 1);
                             info.password[sizeof(info.password) - 1] = '\0';
             
                             LOG_INFO(CYLF_DEF, "Received SSID: %s", info.ssid);
@@ -496,7 +478,7 @@ static void ui_rx_task(void *arg)
                 case IPC_CMD_DEVICE_CONFIG:
                 {
                     LOG_INFO(CYLF_DEF, "Rx IPC_CMD_DEVICE_CONFIG.\n");
-                    device_status = ipc_recv_msg->device_config;
+                    device_status = received_msg.device_config;
             
                     /* Send received device info over BLE/MQTT */
                     send_device_config_info();
@@ -505,8 +487,8 @@ static void ui_rx_task(void *arg)
             
                 case IPC_CMD_GET_CURRENT_HUMIDITY:
                 {
-                    LOG_INFO(CYLF_DEF, "Rx IPC_CMD_GET_CURRENT_HUMIDITY: %u%%\n", ipc_recv_msg->data);
-                    device_status.environment.current_humidity = ipc_recv_msg->data;
+                    LOG_INFO(CYLF_DEF, "Rx IPC_CMD_GET_CURRENT_HUMIDITY: %u%%\n", received_msg.data);
+                    device_status.environment.current_humidity = received_msg.data;
                     send_response_numeric(GETDEVICE_CURRENT_HUMIDITY, OPERATION_READ, (uint32_t)device_status.environment.current_humidity);
                     break;
                 }
@@ -552,6 +534,14 @@ static void ui_rx_task(void *arg)
 void ui_rx_thread_init(void)
 {
     BaseType_t task_return = pdFAIL;
+
+    /* Create the queue before CM55 is enabled and can deliver an IPC message. */
+    xUiRxQueue = xQueueCreate(UI_RX_QUEUE_LENGTH, sizeof(ipc_msg_t));
+    if (xUiRxQueue == NULL)
+    {
+        LOG_ERROR(CYLF_DEF, "UI RX Queue creation failed!\n");
+        return;
+    }
 
     /* Create the FreeRTOS Task */
     task_return = xTaskCreate(ui_rx_task, UI_RX_TASK_NAME, UI_RX_TASK_STACK_SIZE, NULL,

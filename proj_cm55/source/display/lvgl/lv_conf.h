@@ -120,7 +120,7 @@
  *========================*/
 
 /*Align the stride of all layers and images to this bytes*/
-#define LV_DRAW_BUF_STRIDE_ALIGN                1   //64
+#define LV_DRAW_BUF_STRIDE_ALIGN                64
 
 /*Align the start address of draw_buf addresses to this bytes*/
 #define LV_DRAW_BUF_ALIGN                       64  //128
@@ -155,14 +155,16 @@
      */
 
     #define LV_DRAW_SW_SUPPORT_RGB565       1
+    #define LV_DRAW_SW_SUPPORT_RGB565_SWAPPED       0  /*Unused: no asset declares this format, dead code path*/
     #define LV_DRAW_SW_SUPPORT_RGB565A8     1
-    #define LV_DRAW_SW_SUPPORT_RGB888       1
+    #define LV_DRAW_SW_SUPPORT_RGB888       1   /*Required: bg gradients use RGB888 internally*/
     #define LV_DRAW_SW_SUPPORT_XRGB8888     1
     #define LV_DRAW_SW_SUPPORT_ARGB8888     1
-    #define LV_DRAW_SW_SUPPORT_L8           1
-    #define LV_DRAW_SW_SUPPORT_AL88         1
-    #define LV_DRAW_SW_SUPPORT_A8           1
-    #define LV_DRAW_SW_SUPPORT_I1           1
+    #define LV_DRAW_SW_SUPPORT_ARGB8888_PREMULTIPLIED 1  /*Required: lv_draw_vg_lite.c tags every GPU layer PREMULTIPLIED, and the SW unit needs this to composite it (popups, boot anim)*/
+    #define LV_DRAW_SW_SUPPORT_L8           0  /*Unused: no image asset uses L8 (native format is RGB565 at this color depth)*/
+    #define LV_DRAW_SW_SUPPORT_AL88         0  /*Unused: no image asset uses AL88 (native+alpha format is RGB565A8 at this color depth)*/
+    #define LV_DRAW_SW_SUPPORT_A8           1   /*Required: font glyph rendering*/
+    #define LV_DRAW_SW_SUPPORT_I1           1   /*Required: lv_qrcode widget (qr_manager.c) uses an I1 draw buffer*/
 
     /* Set the number of draw unit.
      * > 1 requires an operating system enabled in `LV_USE_OS`
@@ -268,6 +270,9 @@
     /* VG-Lite stroke maximum cache number.
      */
     #define LV_VG_LITE_STROKE_CACHE_CNT 32
+
+    /* Use LVGL's built-in vg_lite driver; disabled since this platform's PDL supplies it. */
+    #define LV_USE_VG_LITE_DRIVER 0
 
 #endif
 
@@ -486,27 +491,27 @@
 
 /*Montserrat fonts with ASCII range and some symbols using bpp = 4
  *https://fonts.google.com/specimen/Montserrat*/
-#define LV_FONT_MONTSERRAT_8  1
-#define LV_FONT_MONTSERRAT_10 1
-#define LV_FONT_MONTSERRAT_12 1
-#define LV_FONT_MONTSERRAT_14 1
-#define LV_FONT_MONTSERRAT_16 1
-#define LV_FONT_MONTSERRAT_18 1
-#define LV_FONT_MONTSERRAT_20 1
-#define LV_FONT_MONTSERRAT_22 1
-#define LV_FONT_MONTSERRAT_24 1
-#define LV_FONT_MONTSERRAT_26 1
-#define LV_FONT_MONTSERRAT_28 1
-#define LV_FONT_MONTSERRAT_30 1
-#define LV_FONT_MONTSERRAT_32 1
-#define LV_FONT_MONTSERRAT_34 1
-#define LV_FONT_MONTSERRAT_36 1
-#define LV_FONT_MONTSERRAT_38 1
-#define LV_FONT_MONTSERRAT_40 1
-#define LV_FONT_MONTSERRAT_42 1
-#define LV_FONT_MONTSERRAT_44 1
-#define LV_FONT_MONTSERRAT_46 1
-#define LV_FONT_MONTSERRAT_48 1
+#define LV_FONT_MONTSERRAT_8  0  /*Unused: no lv_obj_set_style_text_font() in this app uses size 8*/
+#define LV_FONT_MONTSERRAT_10 0  /*Unused*/
+#define LV_FONT_MONTSERRAT_12 0  /*Unused*/
+#define LV_FONT_MONTSERRAT_14 1  /*Required: LV_FONT_DEFAULT*/
+#define LV_FONT_MONTSERRAT_16 1  /*Required: used by several screens*/
+#define LV_FONT_MONTSERRAT_18 1  /*Required: used by several screens*/
+#define LV_FONT_MONTSERRAT_20 1  /*Required: FWUpdate/LP screens*/
+#define LV_FONT_MONTSERRAT_22 0  /*Unused*/
+#define LV_FONT_MONTSERRAT_24 1  /*Required: Info/Welcome screens*/
+#define LV_FONT_MONTSERRAT_26 1  /*Required: Active/FWUpdate screens*/
+#define LV_FONT_MONTSERRAT_28 0  /*Unused*/
+#define LV_FONT_MONTSERRAT_30 1  /*Required: Active/Info screens*/
+#define LV_FONT_MONTSERRAT_32 0  /*Unused*/
+#define LV_FONT_MONTSERRAT_34 0  /*Unused*/
+#define LV_FONT_MONTSERRAT_36 0  /*Unused*/
+#define LV_FONT_MONTSERRAT_38 1  /*Required: LPScreen*/
+#define LV_FONT_MONTSERRAT_40 1  /*Required: Active/LPScreen degree label*/
+#define LV_FONT_MONTSERRAT_42 0  /*Unused*/
+#define LV_FONT_MONTSERRAT_44 0  /*Unused*/
+#define LV_FONT_MONTSERRAT_46 0  /*Unused*/
+#define LV_FONT_MONTSERRAT_48 0  /*Unused*/
 
 /*Demonstrate special features*/
 #define LV_FONT_MONTSERRAT_28_COMPRESSED 0  /*bpp = 3*/
@@ -722,7 +727,7 @@
 /*File system interfaces for common APIs */
 
 /*Setting a default driver letter allows skipping the driver prefix in filepaths*/
-#define LV_FS_DEFAULT_DRIVE_LETTER '\0'
+#define LV_FS_DEFAULT_DRIVER_LETTER '\0'
 
 /*API for fopen, fread, etc*/
 #define LV_USE_FS_STDIO 0

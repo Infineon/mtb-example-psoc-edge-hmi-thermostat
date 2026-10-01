@@ -94,7 +94,7 @@ extern afe_usb_settings_t MY_AFE_USB_SETTINGS;
 #define AFE_FRAME_RATE_SPS	    16000
 
 // Filters in use
-#define ENABLE_IFX_DRVB
+#define ENABLE_IFX_BF
 #define ENABLE_IFX_HPF
 #define ENABLE_IFX_DSNS
 #define ENABLE_IFX_ANALYSIS
@@ -102,9 +102,9 @@ extern afe_usb_settings_t MY_AFE_USB_SETTINGS;
 
 
 // Size of the filter settings
-#define AFE_FILTER_SETTING_SIZE	    23
+#define AFE_FILTER_SETTING_SIZE	    28
 // Size of the MW settings
-#define AFE_MW_SETTINGS_SIZE        32
+#define AFE_MW_SETTINGS_SIZE        16500
 
 // Filter static settings
 extern uint8_t MY_AFE_FILTER_SETTINGS[];

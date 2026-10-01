@@ -83,7 +83,6 @@ static cy_stc_scb_spi_context_t SPI_context;
 static xensiv_bgt60trxx_mtb_t sensor;
 static cy_stc_sysint_t irq_cfg;
 
-static uint16_t bgt60_buffer[NUM_SAMPLES_PER_FRAME] __attribute__((aligned(2)));
 static float32_t frame[NUM_SAMPLES_PER_FRAME];
 static float32_t avg_chirp[NUM_SAMPLES_PER_CHIRP];
 
@@ -325,8 +324,6 @@ void start_radar_accquisition_task(void)
 static void accquisition_task(void *pvParameters)
 {
     (void)pvParameters;
-    cy_rslt_t result = CY_RSLT_SUCCESS;
-    uint32_t status = INIT_SUCCESS;
     static uint16_t samples[NUM_SAMPLES_PER_FRAME] = {0x00};
 #if(ENABLE_RADAR_TIMING_LOG)
     TickType_t lastWakeTime = 0;
@@ -347,9 +344,6 @@ static void accquisition_task(void *pvParameters)
 
     /* Start radar processing task */
     start_radar_processing_task();
-
-    uint32_t frame_idx = 0;
-    uint16_t test_word = XENSIV_BGT60TRXX_INITIAL_TEST_WORD;
 
     LOG_INFO(CYLF_DEF, "Radar accquisition_task start Ok\n");
 
@@ -397,8 +391,6 @@ static void accquisition_task(void *pvParameters)
         /* Store this time for next calculation */
         lastWakeTime = currentTime;
 #endif
-
-        frame_idx++;
     }
 
 }
@@ -470,7 +462,6 @@ static void presence_detection_cb(xensiv_radar_presence_handle_t handle,
 static void processing_task(void *pvParameters)
 {
     (void)pvParameters;
-    uint32_t pr_frame_idx = 0;
 
 #if(ENABLE_RADAR_TIMING_LOG)
     TickType_t lastWakeTime = 0;
@@ -536,8 +527,6 @@ static void processing_task(void *pvParameters)
         /* Store this time for next calculation */
         lastWakeTime = currentTime;
 #endif
-
-            pr_frame_idx++;
         }
     }
 }

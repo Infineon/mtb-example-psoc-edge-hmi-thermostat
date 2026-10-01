@@ -70,7 +70,7 @@ extern TaskHandle_t cm33_ui_rx_task_handle;
  *                              FUNCTION PROTOTYPES
  *******************************************************************************/
 void ui_rx_thread_init(void);
-void get_latet_FW_version(void);
+void get_latest_fw_version(void);
 bool is_switch_to_wifi_enabled(void);
 void set_wifi_switch_disabled(void);
 #ifdef __cplusplus

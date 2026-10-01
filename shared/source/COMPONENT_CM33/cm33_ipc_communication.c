@@ -42,12 +42,19 @@
 #include "cyabs_rtos.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "semphr.h"
 
 
 /*******************************************************************************
 * Global Variable(s)
 *******************************************************************************/
 static cy_mutex_t cm33_ipc_mutex;
+
+/* Given back only when CM55's ISR has fully finished reading the previous
+ * message out of cm33_msg_data (via cm33_ipc_send_release_cb below), so
+ * cm33_ipc_lock() can block a populate+send until it's actually safe to
+ * reuse the shared buffer, instead of racing CM55's in-progress read of it. */
+static SemaphoreHandle_t cm33_ipc_send_done_sem;
 
 /* Create an array of endpoint structures */
 static cy_stc_ipc_pipe_ep_t cm33_ipc_pipe_ep_array[CY_IPC_MAX_ENDPOINTS];
@@ -76,6 +83,28 @@ static uint32_t ipc_sema_array[CY_IPC_SEMA_COUNT / CY_IPC_SEMA_PER_WORD];
 void cm33_ipc_pipe_isr(void)
 {
     Cy_IPC_Pipe_ExecuteCallback(CM33_IPC_PIPE_EP_ADDR);
+}
+
+/*******************************************************************************
+* Function Name: cm33_ipc_send_release_cb
+********************************************************************************
+* Summary:
+*  Runs in ISR context on CM33 when CM55 releases the pipe channel, i.e. once
+*  cm55_msg_callback() has fully finished reading cm33_msg_data. Only then is
+*  it safe to let the next sender overwrite that shared buffer.
+*
+* Parameters:
+*  void
+*
+* Return :
+*  void
+*
+*******************************************************************************/
+static void cm33_ipc_send_release_cb(void)
+{
+    BaseType_t higher_prio_task_woken = pdFALSE;
+    xSemaphoreGiveFromISR(cm33_ipc_send_done_sem, &higher_prio_task_woken);
+    portYIELD_FROM_ISR(higher_prio_task_woken);
 }
 
 
@@ -128,13 +157,46 @@ void cm33_ipc_communication_setup(void)
     .userPipeIsrHandler            = &cm33_ipc_pipe_isr
     };
 
-    cy_rtos_mutex_init(&cm33_ipc_mutex, false);
+    /* Recursive: callers use cm33_ipc_lock()/cm33_ipc_unlock() to hold this
+     * across a message populate + send, and cm33_send_msg_cm55() also takes
+     * it internally, so the same task must be able to re-acquire it. */
+    cy_rtos_mutex_init(&cm33_ipc_mutex, true);
+
+    cm33_ipc_send_done_sem = xSemaphoreCreateBinary();
+    configASSERT(NULL != cm33_ipc_send_done_sem);
+    xSemaphoreGive(cm33_ipc_send_done_sem);
 
     Cy_IPC_Sema_Init(IPC0_SEMA_CH_NUM, CY_IPC_SEMA_COUNT, ipc_sema_array);
 
     Cy_IPC_Pipe_Config(cm33_ipc_pipe_ep_array);
 
     Cy_IPC_Pipe_Init(&cm33_ipc_pipe_config);
+}
+
+bool cm33_ipc_lock(void)
+{
+    if (CY_RSLT_SUCCESS != cy_rtos_mutex_get(&cm33_ipc_mutex, IPC_MUTEX_TIMEOUT))
+    {
+        return false;
+    }
+
+    /* Block until CM55 has fully consumed the previous message so the
+     * populate-then-send that follows can't race its in-progress ISR read
+     * of cm33_msg_data. On timeout the previous message may still be in
+     * flight, so release the mutex and fail - the caller must not touch the
+     * shared buffer. */
+    if (pdTRUE != xSemaphoreTake(cm33_ipc_send_done_sem, pdMS_TO_TICKS(IPC_MUTEX_TIMEOUT)))
+    {
+        cy_rtos_mutex_set(&cm33_ipc_mutex);
+        return false;
+    }
+
+    return true;
+}
+
+void cm33_ipc_unlock(void)
+{
+    cy_rtos_mutex_set(&cm33_ipc_mutex);
 }
 
 /*******************************************************************************
@@ -150,7 +212,7 @@ void cm33_ipc_communication_setup(void)
 *  int - 0 on success, -1 on failure.
 *
 *******************************************************************************/
-int cm33_send_msg_cm55(ipc_msg_t *msg)
+int cm33_send_msg_cm55(ipc_msg_cm33_to_cm55_t *msg)
 {
     int ret = -1;
 
@@ -162,11 +224,15 @@ int cm33_send_msg_cm55(ipc_msg_t *msg)
 
             msg->client_id = CM55_IPC_PIPE_CLIENT_ID;
             pipeStatus = Cy_IPC_Pipe_SendMessage(CM55_IPC_PIPE_EP_ADDR, CM33_IPC_PIPE_EP_ADDR, \
-                                                 (void *)msg, 0);
+                                                 (void *)msg, cm33_ipc_send_release_cb);
             if(CY_IPC_PIPE_SUCCESS != pipeStatus)
             {
                 ret = -1;
                 printf("cm33_send_msg_cm55 error: %d\n", pipeStatus);
+                /* Message never went out, so no release interrupt will ever
+                 * arrive to give this back - do it now or every later sender
+                 * would block forever in cm33_ipc_lock(). */
+                xSemaphoreGive(cm33_ipc_send_done_sem);
             }
             else
             {

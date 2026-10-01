@@ -52,13 +52,14 @@ extern "C" {
 #include "cy_wcm.h"
 #include "cycfg_gatt_db.h"
 #include "wiced_bt_stack.h"
-#include "app_utils.h"
+#include "app_bt_utils.h"
 #include "cycfg_gap.h"
 #include "wiced_memory.h"
 #include "retarget_io_init.h"
 #include "mqtt_task.h"
 #include "wireless_manager.h"
 #include "comm_manager.h"
+#include "wifi_utils.h"
 
 /******************************************************************************
  * Constants
@@ -83,7 +84,8 @@ extern "C" {
 #define COMM_SWITCH_TO_WIFI               (3U)
 
 #define APP_RRAM_NVM_MAIN_NS_START        0x22000000
-#define RRAM_NVM_WIFI_CRED_OFFSET            (0x0002A000)//(0x00055000)
+
+#define RRAM_NVM_WIFI_CRED_OFFSET         (0x0003E000)
 /* Task notification value to indicate whether to use
  * WiFi credentials from NVM or from GATT DB
  */
@@ -112,16 +114,20 @@ typedef __PACKED_STRUCT
  * Extern Variables
  ******************************************************************************/
 extern wifi_details_t wifi_details;
+extern wifi_details_t wifi_cred;
 
 extern cy_wcm_connect_params_t wifi_conn_param;
+
+/* Task Handle for WiFi Task */
+extern TaskHandle_t wifi_task_handle;
+
+extern uint8_t wifi_mac[6];
 
 /******************************************************************************
  * Function Prototypes
  ******************************************************************************/
 cy_rslt_t wcm_init(void);
 cy_rslt_t wifi_connect(void);
-bool is_wifi_connected(void);
-bool is_wifi_operation_canceled(void);
 void wifi_task(void * arg);
 
 #ifdef __cplusplus

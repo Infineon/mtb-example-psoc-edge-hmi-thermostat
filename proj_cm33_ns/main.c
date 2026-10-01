@@ -6,7 +6,7 @@
 * Related Document: See README.md
 *
 *******************************************************************************
-* (c) 2021-2026, Infineon Technologies AG, or an affiliate of Infineon
+* (c) 2026, Infineon Technologies AG, or an affiliate of Infineon
 * Technologies AG. All rights reserved.
 * This software, associated documentation and materials ("Software") is
 * owned by Infineon Technologies AG or one of its affiliates ("Infineon")
@@ -40,7 +40,7 @@
 #include "app_ui_receiver.h"
 #include "app_radar.h"
 #include "secure_http_client.h"
-
+#include "comm_manager.h"
 /******************************************************************************
  * Macros
  ******************************************************************************/
@@ -85,7 +85,7 @@ ipc_msg_t *ipc_recv_msg;
 *  Callback function called when endpoint-1 (CM33) has received a message
 *
 * Parameters:
-*  msg_data: Message data received throuig IPC
+*  msg_data: Message data received through IPC
 *
 * Return :
 *  void
@@ -166,7 +166,7 @@ static void setup_tickless_idle_timer(void)
     /* LPTimer interrupt initialization failed. Stop program execution. */
     if(CY_SYSINT_SUCCESS != interrupt_init_status)
     {
-/* handle_ERROR_CHECK(); */
+        /* handle_ERROR_CHECK(); */
         ERROR_CHECK(interrupt_init_status);
     }
 
@@ -181,7 +181,7 @@ static void setup_tickless_idle_timer(void)
     /* MCWDT initialization failed. Stop program execution. */
     if(CY_MCWDT_SUCCESS != mcwdt_init_status)
     {
-/* handle_ERROR_CHECK(); */
+        /* handle_ERROR_CHECK(); */
         ERROR_CHECK(mcwdt_init_status);
     }
 
@@ -198,7 +198,7 @@ static void setup_tickless_idle_timer(void)
     /* LPTimer setup failed. Stop program execution. */
     if(CY_RSLT_SUCCESS != result)
     {
-/* handle_ERROR_CHECK(); */
+        /* handle_ERROR_CHECK(); */
         ERROR_CHECK(result);
     }
 
@@ -275,7 +275,7 @@ int main(void)
 
     if(CY_IPC_PIPE_SUCCESS != pipeStatus)
     {
-/* handle_ERROR_CHECK(); */
+        /* handle_ERROR_CHECK(); */
         ERROR_CHECK(pipeStatus);
     }
 
@@ -307,13 +307,19 @@ int main(void)
 
     sprintf(current_fw_version, "%d.%d.%d", APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_BUILD);
     
-    /* Enable CM55. CY_CORTEX_M55_APPL_ADDR must be updated if CM55 memory layout is changed. */
-    Cy_SysEnableCM55(MXCM55, CM55_APP_BOOT_ADDR, CM55_BOOT_WAIT_TIME_US);
-
-
     ui_rx_thread_init();
 
+    /* Enable CM55 only after the CM33 IPC receive queue exists. */
+    Cy_SysEnableCM55(MXCM55, CM55_APP_BOOT_ADDR, CM55_BOOT_WAIT_TIME_US);
+
     start_radar_accquisition_task();
+
+    /* Initialize kv-store library */
+    app_kv_store_init();
+
+    /* Start the low-frequency retry timer for sender-side IPC state cache
+     * (guarantees eventual delivery of any unconfirmed STATE command). */
+    comm_manager_cache_init();
 
     /* Initialize WiFi Tasks */
     result = xTaskCreate(wifi_task, "WiFi Task", WIFI_TASK_STACK_SIZE, NULL,
@@ -341,12 +347,12 @@ int main(void)
         vTaskStartScheduler();
         
         /* Should never get here. */
-/* handle_ERROR_CHECK(); */
+        /* handle_ERROR_CHECK(); */
         ERROR_CHECK(result);
     }
     else
     {
-/* handle_ERROR_CHECK(); */
+        /* handle_ERROR_CHECK(); */
         ERROR_CHECK(result);
     }
 }

@@ -42,7 +42,9 @@
 *******************************************************************************/
 #include "cy_time.h"
 #include "FreeRTOS.h"
+#include "task.h"
 #include "semphr.h"
+#include "queue.h"
 #include "app_common.h"
 #include "comm_manager.h"
 #include "app_eeprom.h"
@@ -58,7 +60,7 @@
 * Macros
 *******************************************************************************/
 #define GFX_TASK_NAME                       ("CM55_GfxTask")
-#define GFX_TASK_STACK_SIZE                 (configMINIMAL_STACK_SIZE * 12)
+#define GFX_TASK_STACK_SIZE                 (configMINIMAL_STACK_SIZE * 20)
 #define GFX_TASK_PRIORITY                   (3U)
 
 #define VOICE_ASSISTANT_TASK_NAME           ("CM55_VoiceTask")
@@ -66,6 +68,12 @@
 #define VOICE_ASSISTANT_TASK_PRIORITY       (4U)
 
 #define I2C_CONTROLLER_IRQ_PRIORITY         (2UL)
+
+/* Sized to absorb the largest expected burst of IPC messages arriving faster
+ * than cm55_gfx_task's ~25ms loop drains them. Queued messages are drained in
+ * order; if a burst still exceeds this depth the overflow is dropped and
+ * counted in cm55_ipc_rx_drop_count. */
+#define CM55_IPC_RX_QUEUE_LENGTH            (20U)
 
 /* Enabling or disabling a MCWDT requires a wait time of upto 2 CLK_LF cycles
  * to come into effect. This wait time value will depend on the actual CLK_LF
@@ -83,11 +91,18 @@
 /*******************************************************************************
 * Global Variables
 *******************************************************************************/
-/* IPC communication variables */
-bool cm55_pipe2_msg_received = false;
-ipc_msg_t *ipc_recv_msg;
-volatile uint32_t cm55_ipc_msg_data = RESET_VAL;
-volatile uint32_t cm55_ipc_msg_cmd = RESET_VAL;
+/* IPC communication: ISR enqueues, cm55_gfx_task drains via handle_system_event().
+ * The FreeRTOS queue holds each message until the task reads it, so a burst of
+ * messages arriving faster than the task runs is preserved in order rather than
+ * overwriting one another. Overflow beyond the queue depth is dropped and
+ * counted in cm55_ipc_rx_drop_count. */
+QueueHandle_t cm55_ipc_rx_queue = NULL;
+
+/* Counts CM33->CM55 messages dropped because the rx queue was full when the
+ * ISR tried to enqueue them. A confirmed Cy_IPC_Pipe_SendMessage() only proves
+ * the pipe accepted the message, not that xQueueSendFromISR() succeeded.
+ * app_gfx_disp.c logs this from task context so a non-zero count is visible. */
+volatile uint32_t cm55_ipc_rx_drop_count = 0;
 
 /*******************************************************************************
 * FreeRTOS Task Handles
@@ -129,7 +144,6 @@ uint32_t get_time_ms(void);
 /*******************************************************************************
  *                              FUNCTION DEFINITIONS
  ******************************************************************************/
-
 #if ( configGENERATE_RUN_TIME_STATS == 1 )
 /*******************************************************************************
 * Function Name: setup_run_time_stats_timer
@@ -243,17 +257,20 @@ CY_SECTION(".cy_itcm") uint32_t calculate_idle_percentage(void)
 *******************************************************************************/
 CY_SECTION(".cy_itcm") void cm55_msg_callback(uint32_t * msgData)
 {
+    BaseType_t higher_prio_task_woken = pdFALSE;
+
     if (msgData != NULL)
     {
-        /* Cast the message received to the IPC structure */
-        ipc_recv_msg = (ipc_msg_t *) msgData;
-
-        /* Extract the command to be processed in the main loop */
-        cm55_ipc_msg_data = ipc_recv_msg->data;
-        cm55_ipc_msg_cmd = ipc_recv_msg->cmd;
+        if (xQueueSendFromISR(cm55_ipc_rx_queue, msgData, &higher_prio_task_woken) != pdPASS)
+        {
+            /* Queue full: drop the message rather than overwrite an
+             * unread one (the snapshot-buffer approach this replaces
+             * could silently do exactly that under a fast message burst). */
+            cm55_ipc_rx_drop_count++;
+        }
     }
 
-    cm55_pipe2_msg_received = true;
+    portYIELD_FROM_ISR(higher_prio_task_woken);
 }
 
 /*******************************************************************************
@@ -369,7 +386,6 @@ CY_SECTION(".cy_itcm") static void disp_touch_i2c_controller_interrupt(void)
 
 static void init_i2c_controller(void)
 {
-    cy_rslt_t result = CY_RSLT_SUCCESS;
     cy_en_scb_i2c_status_t i2c_result = CY_SCB_I2C_SUCCESS;
     cy_en_sysint_status_t sysint_status = CY_SYSINT_SUCCESS;
 
@@ -546,6 +562,15 @@ int main(void)
     cm55_ipc_communication_setup();
 
     Cy_SysLib_Delay(50);
+
+    /* Must exist before the callback below can ever fire. Item size matches
+     * ipc_msg_cm33_to_cm55_t (the CM33->CM55 struct), not the larger
+     * ipc_msg_t used for the opposite direction. */
+    cm55_ipc_rx_queue = xQueueCreate(CM55_IPC_RX_QUEUE_LENGTH, sizeof(ipc_msg_cm33_to_cm55_t));
+    if (NULL == cm55_ipc_rx_queue)
+    {
+        APP_ERROR(1);
+    }
 
     /* Register a callback function to handle events on the CM55 IPC pipe */
     pipeStatus = Cy_IPC_Pipe_RegisterCallback(CM55_IPC_PIPE_EP_ADDR, &cm55_msg_callback,

@@ -94,6 +94,7 @@
 #define DISPLAY_SETTLED_TIME_MS             (500U)
 
 #define IDLE_YEAR                           (2000U)
+
 /*******************************************************************************
  *                              GLOBAL VARIABLES
  *****************************************************************************/
@@ -129,24 +130,15 @@ mtb_display_st7701s_backlight_config_t st7701s_backlight_cfg =
     .pwm_config = &CYBSP_PWM_DISP_BACKLIGHT_config
 };
 
-/* Location and time variables */
+/* Location and weather variables */
 char weather_sync_value[32] = "11";
 char location_sync_value[32];
-char hour_sync_value[8];
-char minute_sync_value[8];
-char second_sync_value[8];
-char date_sync_value[8];
-char month_sync_value[8];
-char vaar_sync_value[8];
-char year_sync_value[8];
 char weather_code_sync_value[8];
 DateTime rx_datetime;
 rtc_time_t now;
 
 uint32_t idle_percent = 0;
 uint32_t fps = 0;
-/* Flag to prevent handle_time_update from overwriting dashes during HTTP fetch */
-bool volatile is_http_fetching = false;
 
 /* Flag to show dashes only on first HTTP fetch */
 bool volatile is_first_http_fetch = true;
@@ -406,22 +398,28 @@ static void handle_sensor_update(void)
 *******************************************************************************/
 static void handle_system_event(void)
 {
-    if (cm55_pipe2_msg_received)
+    ipc_msg_cm33_to_cm55_t local_msg;
+
+    /* Drain every message queued since the last call. The FreeRTOS queue holds
+     * each message until this loop reads it, so a burst arriving faster than
+     * the loop iterates is preserved in order rather than overwriting one
+     * another. */
+    while (xQueueReceive(cm55_ipc_rx_queue, &local_msg, 0) == pdPASS)
     {
-        switch (cm55_ipc_msg_cmd)
+        switch (local_msg.cmd)
         {
             case IPC_CMD_UPDATE_PRESENCE_STATUS:
                 #if defined (RADAR_DETECTION)
                 /** Update UI based on presence detection status. */
                 stop_active_state_timer();
-                if ((presence_status_t) cm55_ipc_msg_data == PRESENCE_DETECTED)
+                if ((presence_status_t) local_msg.data == PRESENCE_DETECTED)
                 {
                     /** Switch to Active screen and display presence status. */
                     switch_to_active_screen();
                     update_presence_detection(PRESENCE_DETECTED);
                     lv_obj_set_style_bg_image_opa(ui_presencelbl, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
                 }
-                else if ((presence_status_t) cm55_ipc_msg_data == ABSENCE_DETECTED)
+                else if ((presence_status_t) local_msg.data == ABSENCE_DETECTED)
                 {
                     /** Update absence status. */
                     update_presence_detection(ABSENCE_DETECTED);
@@ -432,8 +430,9 @@ static void handle_system_event(void)
 
             case IPC_CMD_SET_UID:
                 /** Set the device's unique ID from the IPC message. */
-                LOG_INFO(CYLF_DEF, "Rx UID: %s\n", ipc_recv_msg->unique_id);
-                memcpy(device_unique_id, ipc_recv_msg->unique_id, 13);
+                LOG_INFO(CYLF_DEF, "Rx UID: %.*s\n", (int) sizeof(local_msg.unique_id), local_msg.unique_id);
+                memcpy(device_unique_id, local_msg.unique_id, sizeof(device_unique_id) - 1);
+                device_unique_id[sizeof(device_unique_id) - 1] = '\0';
                 lv_label_set_text(ui_deviceIDlabel, device_unique_id);
                 update_device_config_ipc();
                 break;
@@ -446,7 +445,7 @@ static void handle_system_event(void)
                 /** Set the device's date and time from the IPC message. */
                 DateTime rx_datetime;
                 memset(&rx_datetime, 0, sizeof(rx_datetime));
-                memcpy(&rx_datetime, &(ipc_recv_msg->datetime), sizeof(DateTime));
+                memcpy(&rx_datetime, &(local_msg.datetime), sizeof(DateTime));
                 sync_ui_via_ble_or_mqtt(rx_datetime);
                 break;
             }
@@ -461,7 +460,7 @@ static void handle_system_event(void)
                 switch_to_active_screen();
 
                 /** Set the display brightness. */
-                update_display_brightness(cm55_ipc_msg_data);
+                update_display_brightness(local_msg.data);
                 break;
 
             case IPC_CMD_SET_AUDIO_LEVEL:
@@ -469,7 +468,7 @@ static void handle_system_event(void)
                 switch_to_active_screen();
 
                 /** Set the audio output level. */
-                update_thermostat_volume((audio_level_t) cm55_ipc_msg_data);
+                update_thermostat_volume((audio_level_t) local_msg.data);
                 break;
 
             case IPC_CMD_SET_TEMP_UNIT:
@@ -477,14 +476,14 @@ static void handle_system_event(void)
                 switch_to_active_screen();
 
                 /** Set the temperature unit and update IPC. */
-                update_system_unit((temp_unit_t) cm55_ipc_msg_data);
+                update_system_unit((temp_unit_t) local_msg.data);
                 update_device_config_ipc();
                 break;
 
             case IPC_CMD_UPDATE_CONN_STATE:
             {
                 /** Update the device's connection state based on the IPC message. */
-                switch ((device_connection_state_t) cm55_ipc_msg_data)
+                switch ((device_connection_state_t) local_msg.data)
                 {
                     case DEV_ST_BLE_ADVERTISING:
                         request_uid_ipc();
@@ -495,33 +494,33 @@ static void handle_system_event(void)
                         {
                             stop_active_state_timer();
                         }
-                        update_device_connection_state((device_connection_state_t) cm55_ipc_msg_data);
+                        update_device_connection_state((device_connection_state_t) local_msg.data);
                         break;
 
                     case DEV_ST_UNPROVISIONED:
                     case DEV_ST_CLOUD_DISCONNECTED:
                     case DEV_ST_WIFI_DISCONNECTED:
-                        update_device_connection_state((device_connection_state_t) cm55_ipc_msg_data);
+                        update_device_connection_state((device_connection_state_t) local_msg.data);
                         start_inactivity_timer();
                         break;
 
                     case DEV_ST_CLOUD_CONNECTING:
-                        update_device_connection_state((device_connection_state_t) cm55_ipc_msg_data);
+                        update_device_connection_state((device_connection_state_t) local_msg.data);
                         break;
 
                     case DEV_ST_WIFI_CONNECTED:
-                        update_device_connection_state((device_connection_state_t) cm55_ipc_msg_data);
+                        update_device_connection_state((device_connection_state_t) local_msg.data);
                         switch_to_active_screen();
                         break;
 
                     case DEV_ST_BLE_CONNECTED:
-                        update_device_connection_state((device_connection_state_t) cm55_ipc_msg_data);
+                        update_device_connection_state((device_connection_state_t) local_msg.data);
                         switch_to_active_screen();
                         start_inactivity_timer();
                         break;
 
                     case DEV_ST_CLOUD_CONNECTED:
-                        update_device_connection_state((device_connection_state_t) cm55_ipc_msg_data);
+                        update_device_connection_state((device_connection_state_t) local_msg.data);
                         switch_to_active_screen();
                         request_uid_ipc();
                         start_inactivity_timer();
@@ -537,9 +536,8 @@ static void handle_system_event(void)
                 /** Switch to Active screen and display presence status. */
                 switch_to_active_screen();
 
-                /** Set the fan speed and update settings. */
-                update_fan_mode((fan_speed_t) cm55_ipc_msg_data);
-                current_settings.thermostat_setting.fan_mode = (fan_speed_t) cm55_ipc_msg_data;
+                refresh_fan_mode_ui((fan_speed_t) local_msg.data);
+                current_settings.thermostat_setting.fan_mode = (fan_speed_t) local_msg.data;
                 update_current_device_setting();
                 break;
             }
@@ -549,8 +547,8 @@ static void handle_system_event(void)
                 switch_to_active_screen();
 
                 /** Set the thermostat mode and update settings. */
-                update_thermostat_mode((thermostat_mode_t) cm55_ipc_msg_data);
-                current_settings.thermostat_setting.mode = (thermostat_mode_t) cm55_ipc_msg_data;
+                update_thermostat_mode((thermostat_mode_t) local_msg.data);
+                current_settings.thermostat_setting.mode = (thermostat_mode_t) local_msg.data;
                 current_settings.thermostat_setting.fan_mode = get_current_fan_mode();
                 update_thermostat_mode_timer();
                 update_current_device_setting();
@@ -562,19 +560,24 @@ static void handle_system_event(void)
                 switch_to_active_screen();
 
                 /** Update the target temperature. */
-                update_device_temp((uint8_t) cm55_ipc_msg_data);
+                update_device_temp((uint8_t) local_msg.data);
                 break;
             }
             case IPC_CMD_CURRENT_EVENT:
             {
                 /** Display the BLE pairing window with a code. */
                 char pin[7] = { 0 };
-                snprintf(pin, sizeof(pin), "%06lu", (unsigned long) cm55_ipc_msg_data);
-                if (cm55_ipc_msg_data > 1)
+                snprintf(pin, sizeof(pin), "%06lu", (unsigned long) local_msg.data);
+                if (local_msg.data > 1)
                 {
                     /** Switch to Active screen and display presence status. */
                     switch_to_active_screen();
                     stop_active_state_timer();
+                    display_ble_pairing_window(0, pin);
+                }
+                else
+                {
+                    display_ble_pairing_window(1, pin);
                 }
                 break;
             }
@@ -601,7 +604,12 @@ static void handle_system_event(void)
 
             case IPC_CMD_UPDATE_PROVISION_STATE:
                 /** Update the provisioned state of the device. */
-                is_device_provisioned = cm55_ipc_msg_data;
+                is_device_provisioned = local_msg.data;
+                break;
+
+            case IPC_CMD_HIDE_CONN_POPUP:
+                /** Mobile app sent data over BLE -> dismiss connectivity/pairing popups. */
+                dismiss_connectivity_popups();
                 break;
 
             case IPC_CMD_DISABLE_TOUCH:
@@ -616,7 +624,7 @@ static void handle_system_event(void)
 
             case IPC_CMD_UPDATE_CURRENT_SCREEN:
             {
-                switch((screen_id_t)cm55_ipc_msg_data)
+                switch((screen_id_t)local_msg.data)
                 {
                 case SCREEN_FW:
                     _ui_screen_change(&ui_FWUpdateScreen, LV_SCR_LOAD_ANIM_NONE, 0, 0, &ui_FWUpdateScreen_screen_init);
@@ -631,103 +639,31 @@ static void handle_system_event(void)
             }
 
             case IPC_CMD_WEATHER_SYNC:
-                LOG_INFO(CYLF_DEF, "\nWeather data received in CM55: %s\n", ipc_recv_msg->char_value);
+                LOG_INFO(CYLF_DEF, "\nWeather data received in CM55: %.*s\n", (int) sizeof(local_msg.char_value), local_msg.char_value);
 
                 /* Clear and copy the weather data */
                 memset(weather_sync_value, 0, sizeof(weather_sync_value));
-                strncpy(weather_sync_value, ipc_recv_msg->char_value, sizeof(weather_sync_value) - 1);
+                strncpy(weather_sync_value, local_msg.char_value, sizeof(weather_sync_value) - 1);
                 weather_sync_value[sizeof(weather_sync_value) - 1] = '\0';
                 lv_label_set_text_fmt(ui_OutdoorTempLabel, "%d°c", atoi(weather_sync_value));
                 break;
 
             case IPC_CMD_LOCATION_SYNC:
-                LOG_INFO(CYLF_DEF, "\nLocation data received in CM55: %s\n", ipc_recv_msg->char_value);
+                LOG_INFO(CYLF_DEF, "\nLocation data received in CM55: %.*s\n", (int) sizeof(local_msg.char_value), local_msg.char_value);
 
                 /* Clear and copy the location data */
                 memset(location_sync_value, 0, sizeof(location_sync_value));
-                strncpy(location_sync_value, ipc_recv_msg->char_value, sizeof(location_sync_value) - 1);
+                strncpy(location_sync_value, local_msg.char_value, sizeof(location_sync_value) - 1);
                 location_sync_value[sizeof(location_sync_value) - 1] = '\0';
                 lv_label_set_text(ui_LocationLabel, location_sync_value);
-                break;
-
-            case IPC_CMD_HOUR_SYNC:
-                LOG_INFO(CYLF_DEF, "\nHour sync data received in CM55: %s\n", ipc_recv_msg->char_value);
-
-                /* Clear and copy the hour sync data */
-                memset(hour_sync_value, 0, sizeof(hour_sync_value));
-                strncpy(hour_sync_value, ipc_recv_msg->char_value, sizeof(hour_sync_value) - 1);
-                hour_sync_value[sizeof(hour_sync_value) - 1] = '\0';
-                update_date_via_http();
-                break;
-
-            case IPC_CMD_MINUTE_SYNC:
-                LOG_INFO(CYLF_DEF, "\nMinute sync data received in CM55: %s\n", ipc_recv_msg->char_value);
-
-                /* Clear and copy the minute sync data */
-                memset(minute_sync_value, 0, sizeof(minute_sync_value));
-                strncpy(minute_sync_value, ipc_recv_msg->char_value, sizeof(minute_sync_value) - 1);
-                minute_sync_value[sizeof(minute_sync_value) - 1] = '\0';
-                update_date_via_http();
-                break;
-
-            case IPC_CMD_SECOND_SYNC:
-                LOG_INFO(CYLF_DEF, "\nSecond sync data received in CM55: %s\n", ipc_recv_msg->char_value);
-
-                /* Clear and copy the second sync data */
-                memset(second_sync_value, 0, sizeof(second_sync_value));
-                strncpy(second_sync_value, ipc_recv_msg->char_value, sizeof(second_sync_value) - 1);
-                second_sync_value[sizeof(second_sync_value) - 1] = '\0';
-                update_date_via_http();
-                break;
-
-            case IPC_CMD_DATE_SYNC:
-                LOG_INFO(CYLF_DEF, "Month sync data received in CM55: %s\n", ipc_recv_msg->char_value);
-
-                memset(date_sync_value, 0, sizeof(date_sync_value));
-                strncpy(date_sync_value, ipc_recv_msg->char_value, sizeof(date_sync_value) - 1);
-                date_sync_value[sizeof(date_sync_value) - 1] = '\0';
-
-                LOG_INFO(CYLF_DEF, "Date stored: %s\n", date_sync_value);
-                update_date_via_http();
-                break;
-
-            case IPC_CMD_MONTH_SYNC:
-                LOG_INFO(CYLF_DEF, "Month sync data received in CM55: %s\n", ipc_recv_msg->char_value);
-
-                memset(month_sync_value, 0, sizeof(month_sync_value));
-                strncpy(month_sync_value, ipc_recv_msg->char_value, sizeof(month_sync_value) - 1);
-                month_sync_value[sizeof(month_sync_value) - 1] = '\0';
-
-                LOG_INFO(CYLF_DEF, "Month stored: %s\n", month_sync_value);
-                update_date_via_http();
-                break;
-
-            case IPC_CMD_VAAR_SYNC:
-                LOG_INFO(CYLF_DEF, "Vaar sync data received in CM55: %s\n", ipc_recv_msg->char_value);
-
-                memset(vaar_sync_value, 0, sizeof(vaar_sync_value));
-                strncpy(vaar_sync_value, ipc_recv_msg->char_value, sizeof(vaar_sync_value) - 1);
-                vaar_sync_value[sizeof(vaar_sync_value) - 1] = '\0';
-
-                LOG_INFO(CYLF_DEF, "Vaar stored: %s\n", vaar_sync_value);
-                break;
-
-            case IPC_CMD_YEAR_SYNC:
-                LOG_INFO(CYLF_DEF, "Year sync data received in CM55: %s\n", ipc_recv_msg->char_value);
-
-                memset(year_sync_value, 0, sizeof(year_sync_value));
-                strncpy(year_sync_value, ipc_recv_msg->char_value, sizeof(year_sync_value) - 1);
-                year_sync_value[sizeof(year_sync_value) - 1] = '\0';
-
-                LOG_INFO(CYLF_DEF, "Year stored: %s\n", year_sync_value);
-                update_date_via_http();
+                http_sync_complete();
                 break;
 
             case IPC_CMD_WEATHER_CODE_SYNC:
-                LOG_INFO(CYLF_DEF, "Year sync data received in CM55: %s\n", ipc_recv_msg->char_value);
+                LOG_INFO(CYLF_DEF, "Weather code received in CM55: %.*s\n", (int) sizeof(local_msg.char_value), local_msg.char_value);
 
                 memset(weather_code_sync_value, 0, sizeof(weather_code_sync_value));
-                strncpy(weather_code_sync_value, ipc_recv_msg->char_value, sizeof(weather_code_sync_value) - 1);
+                strncpy(weather_code_sync_value, local_msg.char_value, sizeof(weather_code_sync_value) - 1);
                 weather_code_sync_value[sizeof(weather_code_sync_value) - 1] = '\0';
 
                 LOG_INFO(CYLF_DEF, "Weather code stored: %s\n", weather_code_sync_value);
@@ -737,22 +673,33 @@ static void handle_system_event(void)
             case IPC_CMD_HTTP_FETCHING_START:           
                 if (is_first_http_fetch)
                 {
-                    /* Set flag to prevent handle_time_update from overwriting dashes */
-                    is_http_fetching = true;
                     
                     /* Set location to dashes  */
                     lv_label_set_text(ui_LocationLabel, "- - -");
-                    
-                    /* Set weather to dashes */
-                    lv_label_set_text(ui_OutdoorTempLabel, "- - -");
-                     
                 }
+                break;
+
+            case IPC_CMD_HTTP_FETCH_FAILED:
+                http_sync_failed();
                 break;
 
             default:
                 break;
         }
-        cm55_pipe2_msg_received = false;
+    }
+
+    /* Log once whenever cm55_ipc_rx_drop_count changes, so a dropped message
+     * (rx queue full at enqueue time) is reported rather than lost silently. */
+    {
+        static uint32_t last_reported_drop_count = 0;
+        uint32_t current_drop_count = cm55_ipc_rx_drop_count;
+
+        if (current_drop_count != last_reported_drop_count)
+        {
+            LOG_ERROR(CYLF_DEF, "[IPC] cm55_ipc_rx_queue FULL - dropped %lu message(s) so far\n",
+                    (unsigned long) current_drop_count);
+            last_reported_drop_count = current_drop_count;
+        }
     }
 }
 
@@ -797,6 +744,7 @@ void calculate_fps(void)
         /* Get CPU usage */
         idle_percent = calculate_idle_percentage();
         uint32_t cpu_usage = 100 - idle_percent;
+
         if(fps<= TARGET_NUM_FRAMES){
             /* Update all UI labels */
             lv_label_set_text_fmt(ui_FPSlabel, "FPS: %u CPU: %u%%", 
@@ -949,7 +897,7 @@ void cm55_gfx_task(void *arg)
         }
 
         mtb_display_st7701s_set_brightness(brightness_level);
-        
+
         LOG_INFO(CYLF_DEF, "[cm55_gfx_task] Initializing VGLite\r\n");
         /* Allocate memory for VGLite from the vglite_heap_base */
         vg_module_parameters_t vg_params;
@@ -1006,6 +954,7 @@ void cm55_gfx_task(void *arg)
             vTaskDelay(REBOOT_DELAY_MS);
             NVIC_SystemReset();
         }
+
         /* Process sensor update event */
         handle_sensor_update();
 
@@ -1016,6 +965,7 @@ void cm55_gfx_task(void *arg)
          * LVGL tasks.
          */
         time_till_next = lv_timer_handler();
+
         vTaskDelay(pdMS_TO_TICKS(time_till_next));
 
 #if defined(USE_VOICE_ASSISTANT)
@@ -1053,7 +1003,7 @@ void cm55_gfx_task(void *arg)
 
         /* If touch event detected restart the inactivity timer */
         handle_touch_event();
-    
+
         app_speaker_clear();
 
         /* Update time on UI */
@@ -1077,6 +1027,5 @@ void cm55_gfx_task(void *arg)
         }
     }
 }
-
 
 /* [] END OF FILE */

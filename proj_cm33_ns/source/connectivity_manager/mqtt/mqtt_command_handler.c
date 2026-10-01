@@ -45,6 +45,7 @@
 #include "comm_manager.h"
 #include "mqtt_task.h"
 #include "wireless_manager.h"
+#include "app_bt_gatt_handler.h"
 
 /*******************************************************************************
  *                                MACROS
@@ -169,10 +170,10 @@ static void handle_mqtt_command_str(mqtt_commandId_e command, operation_type_e t
 static void handle_devicemode_command(operation_type_e type, thermostat_mode_t mode);
 
 /*******************************************************************************
-* Function Name: handle_gettergettemp_command
+* Function Name: handle_target_temp_command
 ********************************************************************************
 * Summary:
-* Handles the TARGETED_TEMP command to fetch the current target temperature.
+* Handles the TARGETED_TEMP command by returning the current target temperature.
 *
 * Parameters:
 *  void
@@ -180,7 +181,7 @@ static void handle_devicemode_command(operation_type_e type, thermostat_mode_t m
 * Return:
 *  void
 *******************************************************************************/
-static void handle_gettergettemp_command(void);
+static void handle_target_temp_command(void);
 
 /*******************************************************************************
 * Function Name: handle_settempupdown_command
@@ -373,23 +374,29 @@ static char *json_create_response(jsonpyload_t pyload);
 *
 * Parameters:
 *  message - The JSON message string.
-*  tokan - The JSON key to extract.
+*  token - JSON key to extract.
 *
 * Return:
 *  double - The parsed numeric value, or -1 on failure.
 *
 *******************************************************************************/
-static double json_parsenumeric(const char *message, const char *tokan)
+static double json_parsenumeric(const char *message, const char *token)
 {
     double number = -1;
     /* Example: Parse JSON payload from MQTT message */
     cJSON *json = cJSON_Parse(message);
     if (json) {
-        number = cJSON_GetObjectItem(json, tokan)->valuedouble;
-        LOG_INFO(CYLF_DEF, "Parsed value: %g for tokan %s\n", number, tokan);
+
+        cJSON *item = cJSON_GetObjectItem(json, token);
+        if (cJSON_IsNumber(item)) {
+            number = item->valuedouble;
+            LOG_INFO(CYLF_DEF, "Parsed value: %g for token %s\n", number, token);
+        } else {
+            LOG_ERROR(CYLF_DEF, "Token '%s' missing or not a number.\n", token);
+        }
         cJSON_Delete(json);
     } else {
-        LOG_ERROR(CYLF_DEF, "Failed to parse incoming json message for tokan: %s.\n", tokan);
+        LOG_ERROR(CYLF_DEF, "Failed to parse incoming JSON message for token: %s.\n", token);
     }
 
     return number;
@@ -612,10 +619,10 @@ static void handle_devicemode_command(operation_type_e type, thermostat_mode_t m
 }
 
 /*******************************************************************************
-* Function Name: handle_gettergettemp_command
+* Function Name: handle_target_temp_command
 ********************************************************************************
 * Summary:
-*  Responds with the current target temperature.
+*  Responds with the current target temperature for the TARGETED_TEMP command.
 *
 * Parameters:
 *  void
@@ -624,7 +631,7 @@ static void handle_devicemode_command(operation_type_e type, thermostat_mode_t m
 *  void
 *
 *******************************************************************************/
-static void handle_gettergettemp_command(void)
+static void handle_target_temp_command(void)
 {
     send_response_numeric(TARGETED_TEMP, OPERATION_READ, (uint32_t)device_status.environment.target_temp);
 }
@@ -705,7 +712,7 @@ void handle_currenttemp_command(operation_type_e type, uint32_t value)
     }
     else if(OPERATION_READ == type)
     {
-        /* add check for invalid temp */
+        /* Return the current temperature for read requests. */
         send_response_numeric(CURRENT_TEMP, OPERATION_READ, (uint32_t)device_status.environment.current_temp);
     }
 }
@@ -1147,7 +1154,7 @@ static void handle_mqtt_command(mqtt_commandId_e command, operation_type_e type,
 
         case TARGETED_TEMP:
             LOG_INFO(CYLF_DEF, "Handling TARGETED_TEMP...\n");
-            handle_gettergettemp_command();
+            handle_target_temp_command();
             break;
 
         case SETDEVICE_TEMP_UPDOWN:

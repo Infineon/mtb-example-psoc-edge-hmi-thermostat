@@ -13,7 +13,7 @@ See [Design and implementation](docs/design_and_implementation.md) for detailed 
 
 ## Requirements
 
-- [ModusToolbox&trade;](https://www.infineon.com/modustoolbox) v3.7 or later (tested with v3.7)
+- [ModusToolbox&trade;](https://www.infineon.com/modustoolbox) v3.8 or later (tested with v3.8)
 - Board support package (BSP) minimum required version: 1.0.0
 - Programming language: C
 - Associated parts: All [PSOC&trade; Edge MCU](https://www.infineon.com/products/microcontroller/32-bit-psoc-arm-cortex/32-bit-psoc-edge-arm) parts
@@ -22,7 +22,7 @@ See [Design and implementation](docs/design_and_implementation.md) for detailed 
 ## Supported toolchains (make variable 'TOOLCHAIN')
 
 - Arm&reg; Compiler v6.22 (`ARM`)
-
+- LLVM Embedded Toolchain for Arm&reg; v19.1.5 (`LLVM_ARM`)
 
 ## Supported kits (make variable 'TARGET')
 
@@ -33,7 +33,7 @@ See [Design and implementation](docs/design_and_implementation.md) for detailed 
 
 This example uses the board's default configuration. See the kit user guide to ensure that the board is configured correctly.
 
-Ensure the following jumper and pin configuration on the board.
+Ensure the following jumper and pin configuration on the board:
 - The BOOT SW must be in the HIGH/ON position
 
    **Figure 1.  Boot switch position**
@@ -108,13 +108,14 @@ See [Using the code example](docs/using_the_code_example.md) for instructions on
 
     ![](images/control_over_cloud.png)
 
-11. After connecting to the Wi-Fi, the thermostat fetches location-based weather and temperature information from an HTTP server. The real-time weather data updates and is displayed directly on the thermostat screen. The current time is also retrieved from the HTTP server, and updated on the thermostat user interface
+11. After connecting to the Wi-Fi, the thermostat fetches its approximate location from an IP-based location service over HTTP and displays it on the thermostat screen. The outdoor weather icon and temperature show default values. To display live weather, set `WEATHER_SERVER_HOST` and `WEATHER_PATH_FORMAT` to a weather service of your choice in *proj_cm33_ns/source/connectivity_manager/http/secure_http_client.h* and adapt the response parser in *secure_http_client.c*.
 
-    **Figure 10. Sync the thermostat with the current location, temperature, and timezone**
+
+    **Figure 10. Sync the thermostat with the current location**
 
     ![](images/https_sync.png)
     
-12. The updated time information is updated in the RTC, ensuring that the system maintains the accurate time and date, even during power loss. To ensure RTC functionality, a coin cell battery should be installed in the HMI kit
+12. The current time and date received from the connected mobile app over Bluetooth&reg; is updated in the RTC, ensuring that the system maintains the accurate time and date, even during power loss. To ensure RTC functionality, a coin cell battery should be installed in the HMI kit
 13. The thermostat functionality also includes the ability to display the changes in humidity of the current environment. Observe how the humidity percentage(%) dynamically updates in real time
 14. Access the **SETTINGS** menu on the thermostat to customize its features and behavior. You can adjust preferences, such as display brightness, screen timeout values, and advanced settings
 
@@ -204,6 +205,7 @@ Document title: *CE242776* - *PSOC&trade; Edge HMI Kit: Smart thermostat*
  ------- | ---------------------
  1.0.0   | New code example
  1.0.1   | Updated the design file to use the latest SPI personality
+ 1.1.0   | Added LLVM toolchain support, upgraded LVGL to v9.5.0 and enhanced overall performance
 <br>
 
 

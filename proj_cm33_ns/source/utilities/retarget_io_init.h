@@ -90,11 +90,10 @@ __STATIC_INLINE void handle_app_error(void)
    __disable_irq();
    printf("handle_app_error\n");
 
-   /* Optional: allow debug breakpoint */
-   // CY_ASSERT(0);
+   CY_ASSERT(0);
 
-   /* Perform software reset */
-   NVIC_SystemReset();
+   /* Infinite loop */
+    while(true);
 }
 
 

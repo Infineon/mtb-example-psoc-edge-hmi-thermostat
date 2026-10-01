@@ -98,14 +98,6 @@ lv_obj_t *ui_progressCancelImg= NULL;
 lv_obj_t *ui_progressCancelLbl= NULL;
 lv_obj_t *ui_autoreconnectpanel= NULL;
 lv_obj_t *ui_autoreconnectlbl= NULL;
-lv_obj_t * ui_devstatecontainerssidfield;
-lv_obj_t * ui_devstatecontainerpasswordfield;
-lv_obj_t * ui_devstatecontainerwifisubmit;
-lv_obj_t * ui_wifisubmitbtnlabel1;
-lv_obj_t * ui_devstatecontainerkeybd;
-lv_obj_t * ui_devstatecontainerkeybdok;
-lv_obj_t * ui_devcontainerkeybdgoback;
-lv_obj_t * ui_devcontainerkeybdgobackimg;
 lv_obj_t *ui_Switch2;
 lv_obj_t *ui_connstatekeyboardbtn;
 lv_obj_t *ui_connstatekeybdimg;
@@ -131,9 +123,14 @@ lv_obj_t *ui_voicecmdcontainer;
 lv_obj_t *ui_cmdlistheader;
 lv_obj_t *ui_voicecmdlistpanel;
 lv_obj_t *ui_Roller1;
-lv_obj_t *ui_bleconmappinfolabel;
 lv_obj_t *ui_bleconswitchtoKeybd;
 lv_obj_t * ui_bleconkeybdimg;
+
+lv_obj_t *ui_popupbox = NULL;
+lv_obj_t *ui_blepairingcode = NULL;
+lv_obj_t *ui_titlelabel = NULL;
+lv_obj_t *ui_pinlabel = NULL;
+lv_obj_t *ui_instructionlabel = NULL;
 
 lv_obj_t * ui_descriptionPanel = NULL;
 lv_obj_t * ui_descriptionLabel = NULL;
@@ -307,6 +304,7 @@ void ui_event_popupoverlay(lv_event_t * e)
     }
     if(event_code == LV_EVENT_CLICKED) {
         popup_overlay_visible = false;
+        ble_pairing_popup_visible = false;
         update_fan_mode(current_settings.thermostat_setting.fan_mode);
     }
 }
@@ -529,61 +527,6 @@ void ui_event_connstatekeyboardbtn(lv_event_t * e)
 
     if(event_code == LV_EVENT_CLICKED) {
         _ui_flag_modify(ui_devconnstatecontianer, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_ADD);
-        lv_obj_add_flag(ui_bleconmappinfolabel, LV_OBJ_FLAG_HIDDEN);
-    }
-}
-
-void ui_event_devstatecontainerssidfield(lv_event_t * e)
-{
-    lv_event_code_t event_code = lv_event_get_code(e);
-
-    if(event_code == LV_EVENT_CLICKED) {
-        _ui_flag_modify(ui_devstatecontainerkeybd, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
-        _ui_flag_modify(ui_devstatecontainerwifisubmit, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_ADD);
-    }
-    if(event_code == LV_EVENT_FOCUSED) {
-        _ui_keyboard_set_target(ui_devstatecontainerkeybd,  ui_devstatecontainerssidfield);
-    }
-}
-
-void ui_event_devstatecontainerpasswordfield(lv_event_t * e)
-{
-    lv_event_code_t event_code = lv_event_get_code(e);
-
-    if(event_code == LV_EVENT_CLICKED) {
-        _ui_flag_modify(ui_devstatecontainerkeybd, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
-        _ui_flag_modify(ui_devstatecontainerwifisubmit, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_ADD);
-    }
-    if(event_code == LV_EVENT_FOCUSED) {
-        _ui_keyboard_set_target(ui_devstatecontainerkeybd,  ui_devstatecontainerpasswordfield);
-    }
-}
-
-void ui_event_devstatecontainerwifisubmit(lv_event_t * e)
-{
-    lv_event_code_t event_code = lv_event_get_code(e);
-
-    if(event_code == LV_EVENT_CLICKED) {
-        update_wifi_cred(e);
-    }
-}
-
-void ui_event_devcontainerkeybdgoback(lv_event_t * e)
-{
-    lv_event_code_t event_code = lv_event_get_code(e);
-
-    if(event_code == LV_EVENT_CLICKED) {
-        _ui_flag_modify(ui_devconnstatecontianer, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
-    }
-}
-
-void ui_event_devstatecontainerkeybdok(lv_event_t * e)
-{
-    lv_event_code_t event_code = lv_event_get_code(e);
-
-    if(event_code == LV_EVENT_CLICKED) {
-        _ui_flag_modify(ui_devstatecontainerkeybd, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_ADD);
-        _ui_flag_modify(ui_devstatecontainerwifisubmit, LV_OBJ_FLAG_HIDDEN, _UI_MODIFY_FLAG_REMOVE);
     }
 }
 
@@ -1175,45 +1118,6 @@ void ui_ActiveScreen_screen_init(void)
     lv_obj_set_style_text_opa(ui_currenttemp, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_currenttemp, &ui_font_sans24, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-
-
-    ui_bleconmappinfolabel = lv_label_create(ui_devconnstatecontianer);
-    lv_obj_set_width(ui_bleconmappinfolabel, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_bleconmappinfolabel, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_bleconmappinfolabel, 138);
-    lv_obj_set_y(ui_bleconmappinfolabel, -79);
-    lv_obj_set_align(ui_bleconmappinfolabel, LV_ALIGN_CENTER);
-    lv_obj_add_flag(ui_bleconmappinfolabel, LV_OBJ_FLAG_HIDDEN);     /// Flags
-    lv_label_set_text(ui_bleconmappinfolabel, "Press to use keyboard to\nEnter Wi-Fi credentials");
-    lv_obj_set_style_text_color(ui_bleconmappinfolabel, lv_color_hex(0xFCFBFB), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_opa(ui_bleconmappinfolabel, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_align(ui_bleconmappinfolabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui_bleconmappinfolabel, &ui_font_sans14, LV_PART_MAIN | LV_STATE_DEFAULT);
-
-    ui_bleconswitchtoKeybd = lv_button_create(ui_devconnstatecontianer);
-    lv_obj_set_width(ui_bleconswitchtoKeybd, 54);
-    lv_obj_set_height(ui_bleconswitchtoKeybd, 36);
-    lv_obj_set_x(ui_bleconswitchtoKeybd, 147);
-    lv_obj_set_y(ui_bleconswitchtoKeybd, -117);
-    lv_obj_set_align(ui_bleconswitchtoKeybd, LV_ALIGN_CENTER);
-    lv_obj_add_flag(ui_bleconswitchtoKeybd, LV_OBJ_FLAG_HIDDEN);     /// Flags
-    lv_obj_add_flag(ui_bleconswitchtoKeybd, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
-    lv_obj_remove_flag(ui_bleconswitchtoKeybd, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
-    lv_obj_set_style_bg_color(ui_bleconswitchtoKeybd, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_bleconswitchtoKeybd, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(ui_bleconswitchtoKeybd, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_shadow_width(ui_bleconswitchtoKeybd, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_shadow_spread(ui_bleconswitchtoKeybd, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-
-    ui_bleconkeybdimg = lv_image_create(ui_bleconswitchtoKeybd);
-    lv_image_set_src(ui_bleconkeybdimg, &ui_img_keyboard_icon1_png);
-    lv_obj_set_width(ui_bleconkeybdimg, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_bleconkeybdimg, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_bleconkeybdimg, 1);
-    lv_obj_set_y(ui_bleconkeybdimg, -2);
-    lv_obj_set_align(ui_bleconkeybdimg, LV_ALIGN_CENTER);
-    lv_obj_remove_flag(ui_bleconkeybdimg, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
-
     ui_descriptionPanelSecondary = lv_image_create(ui_ActiveScreen);
     lv_image_set_src(ui_descriptionPanelSecondary, &ui_img_descriptionpanel_png);
     lv_obj_set_width(ui_descriptionPanelSecondary, LV_SIZE_CONTENT);   /// 1
@@ -1304,13 +1208,23 @@ void ui_ActiveScreen_screen_init(void)
     lv_obj_remove_style_all(ui_popupoverlay);
     lv_obj_set_width(ui_popupoverlay, 480);
     lv_obj_set_height(ui_popupoverlay, 480);
-    lv_obj_set_x(ui_popupoverlay, -14);
+    lv_obj_set_x(ui_popupoverlay, -16);
     lv_obj_set_y(ui_popupoverlay, 0);
     lv_obj_set_align(ui_popupoverlay, LV_ALIGN_CENTER);
     lv_obj_add_flag(ui_popupoverlay, LV_OBJ_FLAG_HIDDEN);     /// Flags
     lv_obj_remove_flag(ui_popupoverlay, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
     lv_obj_set_style_bg_image_src(ui_popupoverlay, &ui_img_panel_conn_bg_png, LV_PART_MAIN | LV_STATE_DEFAULT);  //ui_img_conn_bg_img1_png
 
+    ui_popupbox = lv_obj_create(ui_popupoverlay);
+    lv_obj_remove_style_all(ui_popupbox);
+    lv_obj_set_width(ui_popupbox, 449);
+    lv_obj_set_height(ui_popupbox, 303);
+    lv_obj_set_x(ui_popupbox, -2);
+    lv_obj_set_y(ui_popupbox, 3);
+    lv_obj_set_align(ui_popupbox, LV_ALIGN_CENTER);
+    lv_obj_add_flag(ui_popupbox, LV_OBJ_FLAG_OVERFLOW_VISIBLE);     /// Flags
+    lv_obj_remove_flag(ui_popupbox, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    
     ui_commissionMapp = lv_obj_create(ui_popupoverlay);
     lv_obj_remove_style_all(ui_commissionMapp);
     lv_obj_set_width(ui_commissionMapp, 449);
@@ -1483,6 +1397,32 @@ void ui_ActiveScreen_screen_init(void)
     lv_obj_set_align(ui_devconnstatecontianer, LV_ALIGN_CENTER);
     lv_obj_add_flag(ui_devconnstatecontianer, LV_OBJ_FLAG_HIDDEN);     /// Flags
     lv_obj_remove_flag(ui_devconnstatecontianer, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    /* No event handler on this container; clickable-by-default would silently swallow taps meant for siblings/overlapping widgets */
+    lv_obj_remove_flag(ui_devconnstatecontianer, LV_OBJ_FLAG_CLICKABLE);
+
+    ui_bleconswitchtoKeybd = lv_button_create(ui_devconnstatecontianer);
+    lv_obj_set_width(ui_bleconswitchtoKeybd, 54);
+    lv_obj_set_height(ui_bleconswitchtoKeybd, 36);
+    lv_obj_set_x(ui_bleconswitchtoKeybd, 147);
+    lv_obj_set_y(ui_bleconswitchtoKeybd, -117);
+    lv_obj_set_align(ui_bleconswitchtoKeybd, LV_ALIGN_CENTER);
+    lv_obj_add_flag(ui_bleconswitchtoKeybd, LV_OBJ_FLAG_HIDDEN);     /// Flags
+    lv_obj_add_flag(ui_bleconswitchtoKeybd, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
+    lv_obj_remove_flag(ui_bleconswitchtoKeybd, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    lv_obj_set_style_bg_color(ui_bleconswitchtoKeybd, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_bleconswitchtoKeybd, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(ui_bleconswitchtoKeybd, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_shadow_width(ui_bleconswitchtoKeybd, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_shadow_spread(ui_bleconswitchtoKeybd, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_bleconkeybdimg = lv_image_create(ui_bleconswitchtoKeybd);
+    lv_image_set_src(ui_bleconkeybdimg, &ui_img_keyboard_icon1_png);
+    lv_obj_set_width(ui_bleconkeybdimg, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_bleconkeybdimg, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_bleconkeybdimg, 1);
+    lv_obj_set_y(ui_bleconkeybdimg, -2);
+    lv_obj_set_align(ui_bleconkeybdimg, LV_ALIGN_CENTER);
+    lv_obj_remove_flag(ui_bleconkeybdimg, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
 
     ui_bleconnected120 = lv_image_create(ui_devconnstatecontianer);
     lv_image_set_src(ui_bleconnected120, &ui_img_ble_connected_120_png);
@@ -1708,6 +1648,8 @@ void ui_ActiveScreen_screen_init(void)
     lv_obj_set_y(ui_autoreconnectpanel, 125);
     lv_obj_set_align(ui_autoreconnectpanel, LV_ALIGN_CENTER);
     lv_obj_remove_flag(ui_autoreconnectpanel, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    /* No event handler on this container; it overlaps ui_progressCancelBtn and is the later sibling, so it wins hit-testing and eats the tap */
+    lv_obj_remove_flag(ui_autoreconnectpanel, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_set_style_bg_color(ui_autoreconnectpanel, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_autoreconnectpanel, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(ui_autoreconnectpanel, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -1793,6 +1735,56 @@ void ui_ActiveScreen_screen_init(void)
     lv_obj_set_y(ui_bleswitchbtnicon, 0);
     lv_obj_set_align(ui_bleswitchbtnicon, LV_ALIGN_CENTER);
     lv_obj_remove_flag(ui_bleswitchbtnicon, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+
+    ui_blepairingcode = lv_obj_create(ui_popupbox);
+    lv_obj_remove_style_all(ui_blepairingcode);
+    lv_obj_set_width(ui_blepairingcode, 449);
+    lv_obj_set_height(ui_blepairingcode, 303);
+    lv_obj_set_x(ui_blepairingcode, -2);
+    lv_obj_set_y(ui_blepairingcode, 3);
+    lv_obj_set_align(ui_blepairingcode, LV_ALIGN_CENTER);
+    lv_obj_add_flag(ui_blepairingcode, LV_OBJ_FLAG_HIDDEN);     /// Flags
+    lv_obj_remove_flag(ui_blepairingcode, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    lv_obj_set_style_bg_color(ui_blepairingcode, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_blepairingcode, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_titlelabel = lv_label_create(ui_blepairingcode);
+    lv_obj_set_width(ui_titlelabel, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_titlelabel, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_titlelabel, -3);
+    lv_obj_set_y(ui_titlelabel, -105);
+    lv_obj_set_align(ui_titlelabel, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_titlelabel, "BLE Pairing Mode");
+    lv_obj_set_style_text_color(ui_titlelabel, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_opa(ui_titlelabel, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(ui_titlelabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_titlelabel, &ui_font_sans24, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_pinlabel = lv_label_create(ui_blepairingcode);
+    lv_obj_set_width(ui_pinlabel, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_pinlabel, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_pinlabel, 1);
+    lv_obj_set_y(ui_pinlabel, -15);
+    lv_obj_set_align(ui_pinlabel, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_pinlabel, "742851");
+    lv_obj_set_style_text_color(ui_pinlabel, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_opa(ui_pinlabel, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_letter_space(ui_pinlabel, 15, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_line_space(ui_pinlabel, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(ui_pinlabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_pinlabel, &ui_font_sans24, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_instructionlabel = lv_label_create(ui_blepairingcode);
+    lv_obj_set_width(ui_instructionlabel, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_instructionlabel, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_instructionlabel, 2);
+    lv_obj_set_y(ui_instructionlabel, -40);
+    lv_obj_set_align(ui_instructionlabel, LV_ALIGN_BOTTOM_MID);
+    lv_label_set_text(ui_instructionlabel, "Enter this PIN on the mobile device​");
+    lv_obj_set_style_text_color(ui_instructionlabel, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_opa(ui_instructionlabel, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(ui_instructionlabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_instructionlabel, &ui_font_sans24, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_qrcodecontainer = lv_obj_create(ui_popupoverlay);
     lv_obj_remove_style_all(ui_qrcodecontainer);
@@ -2058,11 +2050,6 @@ void ui_ActiveScreen_screen_init(void)
     lv_obj_add_event_cb(ui_progressCancelBtn, ui_event_progressCancelBtn, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Switch2, ui_event_Switch2, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_connstatekeyboardbtn, ui_event_connstatekeyboardbtn, LV_EVENT_ALL, NULL);
-    lv_obj_add_event_cb(ui_devstatecontainerssidfield, ui_event_devstatecontainerssidfield, LV_EVENT_ALL, NULL);
-    lv_obj_add_event_cb(ui_devstatecontainerpasswordfield, ui_event_devstatecontainerpasswordfield, LV_EVENT_ALL, NULL);
-    lv_obj_add_event_cb(ui_devstatecontainerwifisubmit, ui_event_devstatecontainerwifisubmit, LV_EVENT_ALL, NULL);
-    lv_obj_add_event_cb(ui_devcontainerkeybdgoback, ui_event_devcontainerkeybdgoback, LV_EVENT_ALL, NULL);
-    lv_obj_add_event_cb(ui_devstatecontainerkeybdok, ui_event_devstatecontainerkeybdok, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_bleswitchbtn, ui_event_bleswitchbtn, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_descriptionPanel, ui_event_descriptionPanel, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_descriptionPanelSecondary, ui_event_descriptionPanel, LV_EVENT_ALL, NULL);

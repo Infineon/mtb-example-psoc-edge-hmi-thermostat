@@ -4,7 +4,6 @@
 // Project name: Thermostat_HMI
 
 #include "ui.h"
-#include "lv_freertos.h"
 #include "ui_helpers.h"
 #include "../../shared/include/app_common.h"
 #include "thermostat_events.h"
@@ -51,6 +50,7 @@ lv_anim_t * fanspeed_Animation(lv_obj_t * TargetObject, int delay)
     PropertyAnimation_0_user_data->val = -1;
     lv_anim_t PropertyAnimation_0;
     lv_anim_init(&PropertyAnimation_0);
+    lv_anim_set_var(&PropertyAnimation_0, TargetObject);
     lv_anim_set_time(&PropertyAnimation_0, 0);
     lv_anim_set_user_data(&PropertyAnimation_0, PropertyAnimation_0_user_data);
     lv_anim_set_custom_exec_cb(&PropertyAnimation_0, _ui_anim_callback_set_image_angle);
@@ -70,11 +70,15 @@ lv_anim_t * fanspeed_Animation(lv_obj_t * TargetObject, int delay)
 lv_anim_t * tes_Animation(lv_obj_t * TargetObject, int delay)
 {
     lv_anim_t * out_anim;
+    /*get_value_cb makes the values below relative offsets from the CURRENT opacity;
+     *without this reset, repeated restarts compound and drift out of range*/
+    lv_obj_set_style_opa(TargetObject, 0, 0);
     ui_anim_user_data_t * PropertyAnimation_0_user_data = lv_malloc(sizeof(ui_anim_user_data_t));
     PropertyAnimation_0_user_data->target = TargetObject;
     PropertyAnimation_0_user_data->val = -1;
     lv_anim_t PropertyAnimation_0;
     lv_anim_init(&PropertyAnimation_0);
+    lv_anim_set_var(&PropertyAnimation_0, TargetObject);
     lv_anim_set_time(&PropertyAnimation_0, 1000);
     lv_anim_set_user_data(&PropertyAnimation_0, PropertyAnimation_0_user_data);
     lv_anim_set_custom_exec_cb(&PropertyAnimation_0, _ui_anim_callback_set_opacity);
@@ -95,11 +99,15 @@ lv_anim_t * tes_Animation(lv_obj_t * TargetObject, int delay)
 lv_anim_t * wifi_Animation(lv_obj_t * TargetObject, int delay)
 {
     lv_anim_t * out_anim;
+    /*get_value_cb makes the values below relative offsets from the CURRENT opacity;
+     *without this reset, repeated restarts compound and drift out of range*/
+    lv_obj_set_style_opa(TargetObject, 0, 0);
     ui_anim_user_data_t * PropertyAnimation_0_user_data = lv_malloc(sizeof(ui_anim_user_data_t));
     PropertyAnimation_0_user_data->target = TargetObject;
     PropertyAnimation_0_user_data->val = -1;
     lv_anim_t PropertyAnimation_0;
     lv_anim_init(&PropertyAnimation_0);
+    lv_anim_set_var(&PropertyAnimation_0, TargetObject);
     lv_anim_set_time(&PropertyAnimation_0, 1000);
     lv_anim_set_user_data(&PropertyAnimation_0, PropertyAnimation_0_user_data);
     lv_anim_set_custom_exec_cb(&PropertyAnimation_0, _ui_anim_callback_set_opacity);
@@ -120,11 +128,15 @@ lv_anim_t * wifi_Animation(lv_obj_t * TargetObject, int delay)
 lv_anim_t * bleadvpulse_Animation(lv_obj_t * TargetObject, int delay)
 {
     lv_anim_t * out_anim;
+    /*get_value_cb makes the values below relative offsets from the CURRENT zoom;
+     *without this reset, repeated restarts compound and the icon keeps growing*/
+    lv_image_set_scale(TargetObject, LV_SCALE_NONE);
     ui_anim_user_data_t * PropertyAnimation_0_user_data = lv_malloc(sizeof(ui_anim_user_data_t));
     PropertyAnimation_0_user_data->target = TargetObject;
     PropertyAnimation_0_user_data->val = -1;
     lv_anim_t PropertyAnimation_0;
     lv_anim_init(&PropertyAnimation_0);
+    lv_anim_set_var(&PropertyAnimation_0, TargetObject);
     lv_anim_set_time(&PropertyAnimation_0, 500);
     lv_anim_set_user_data(&PropertyAnimation_0, PropertyAnimation_0_user_data);
     lv_anim_set_custom_exec_cb(&PropertyAnimation_0, _ui_anim_callback_set_image_zoom);
@@ -145,11 +157,15 @@ lv_anim_t * bleadvpulse_Animation(lv_obj_t * TargetObject, int delay)
 lv_anim_t * progress1_Animation(lv_obj_t * TargetObject, int delay)
 {
     lv_anim_t * out_anim;
+    /*get_value_cb makes the values below relative offsets from the CURRENT opacity;
+     *without this reset, repeated restarts compound and drift out of range*/
+    lv_obj_set_style_opa(TargetObject, 0, 0);
     ui_anim_user_data_t * PropertyAnimation_0_user_data = lv_malloc(sizeof(ui_anim_user_data_t));
     PropertyAnimation_0_user_data->target = TargetObject;
     PropertyAnimation_0_user_data->val = -1;
     lv_anim_t PropertyAnimation_0;
     lv_anim_init(&PropertyAnimation_0);
+    lv_anim_set_var(&PropertyAnimation_0, TargetObject);
     lv_anim_set_time(&PropertyAnimation_0, 300);
     lv_anim_set_user_data(&PropertyAnimation_0, PropertyAnimation_0_user_data);
     lv_anim_set_custom_exec_cb(&PropertyAnimation_0, _ui_anim_callback_set_opacity);
@@ -170,11 +186,15 @@ lv_anim_t * progress1_Animation(lv_obj_t * TargetObject, int delay)
 lv_anim_t * progress2_Animation(lv_obj_t * TargetObject, int delay)
 {
     lv_anim_t * out_anim;
+    /*get_value_cb makes the values below relative offsets from the CURRENT opacity;
+     *without this reset, repeated restarts compound and drift out of range*/
+    lv_obj_set_style_opa(TargetObject, 0, 0);
     ui_anim_user_data_t * PropertyAnimation_0_user_data = lv_malloc(sizeof(ui_anim_user_data_t));
     PropertyAnimation_0_user_data->target = TargetObject;
     PropertyAnimation_0_user_data->val = -1;
     lv_anim_t PropertyAnimation_0;
     lv_anim_init(&PropertyAnimation_0);
+    lv_anim_set_var(&PropertyAnimation_0, TargetObject);
     lv_anim_set_time(&PropertyAnimation_0, 300);
     lv_anim_set_user_data(&PropertyAnimation_0, PropertyAnimation_0_user_data);
     lv_anim_set_custom_exec_cb(&PropertyAnimation_0, _ui_anim_callback_set_opacity);
@@ -195,11 +215,15 @@ lv_anim_t * progress2_Animation(lv_obj_t * TargetObject, int delay)
 lv_anim_t * progress3_Animation(lv_obj_t * TargetObject, int delay)
 {
     lv_anim_t * out_anim;
+    /*get_value_cb makes the values below relative offsets from the CURRENT opacity;
+     *without this reset, repeated restarts compound and drift out of range*/
+    lv_obj_set_style_opa(TargetObject, 0, 0);
     ui_anim_user_data_t * PropertyAnimation_0_user_data = lv_malloc(sizeof(ui_anim_user_data_t));
     PropertyAnimation_0_user_data->target = TargetObject;
     PropertyAnimation_0_user_data->val = -1;
     lv_anim_t PropertyAnimation_0;
     lv_anim_init(&PropertyAnimation_0);
+    lv_anim_set_var(&PropertyAnimation_0, TargetObject);
     lv_anim_set_time(&PropertyAnimation_0, 300);
     lv_anim_set_user_data(&PropertyAnimation_0, PropertyAnimation_0_user_data);
     lv_anim_set_custom_exec_cb(&PropertyAnimation_0, _ui_anim_callback_set_opacity);
@@ -220,11 +244,15 @@ lv_anim_t * progress3_Animation(lv_obj_t * TargetObject, int delay)
 lv_anim_t * fanspeedlow_Animation(lv_obj_t * TargetObject, int delay)
 {
     lv_anim_t * out_anim;
+    /*get_value_cb makes the values below relative offsets from the CURRENT angle;
+     *without this reset, repeated restarts compound the rotation*/
+    lv_image_set_rotation(TargetObject, 0);
     ui_anim_user_data_t * PropertyAnimation_0_user_data = lv_malloc(sizeof(ui_anim_user_data_t));
     PropertyAnimation_0_user_data->target = TargetObject;
     PropertyAnimation_0_user_data->val = -1;
     lv_anim_t PropertyAnimation_0;
     lv_anim_init(&PropertyAnimation_0);
+    lv_anim_set_var(&PropertyAnimation_0, TargetObject);
     lv_anim_set_time(&PropertyAnimation_0, 3000);
     lv_anim_set_user_data(&PropertyAnimation_0, PropertyAnimation_0_user_data);
     lv_anim_set_custom_exec_cb(&PropertyAnimation_0, _ui_anim_callback_set_image_angle);
@@ -245,11 +273,15 @@ lv_anim_t * fanspeedlow_Animation(lv_obj_t * TargetObject, int delay)
 lv_anim_t * fanspeedmed_Animation(lv_obj_t * TargetObject, int delay)
 {
     lv_anim_t * out_anim;
+    /*get_value_cb makes the values below relative offsets from the CURRENT angle;
+     *without this reset, repeated restarts compound the rotation*/
+    lv_image_set_rotation(TargetObject, 0);
     ui_anim_user_data_t * PropertyAnimation_0_user_data = lv_malloc(sizeof(ui_anim_user_data_t));
     PropertyAnimation_0_user_data->target = TargetObject;
     PropertyAnimation_0_user_data->val = -1;
     lv_anim_t PropertyAnimation_0;
     lv_anim_init(&PropertyAnimation_0);
+    lv_anim_set_var(&PropertyAnimation_0, TargetObject);
     lv_anim_set_time(&PropertyAnimation_0, 1500);
     lv_anim_set_user_data(&PropertyAnimation_0, PropertyAnimation_0_user_data);
     lv_anim_set_custom_exec_cb(&PropertyAnimation_0, _ui_anim_callback_set_image_angle);
@@ -270,11 +302,15 @@ lv_anim_t * fanspeedmed_Animation(lv_obj_t * TargetObject, int delay)
 lv_anim_t * fanspeedhigh_Animation(lv_obj_t * TargetObject, int delay)
 {
     lv_anim_t * out_anim;
+    /*get_value_cb makes the values below relative offsets from the CURRENT angle;
+     *without this reset, repeated restarts compound the rotation*/
+    lv_image_set_rotation(TargetObject, 0);
     ui_anim_user_data_t * PropertyAnimation_0_user_data = lv_malloc(sizeof(ui_anim_user_data_t));
     PropertyAnimation_0_user_data->target = TargetObject;
     PropertyAnimation_0_user_data->val = -1;
     lv_anim_t PropertyAnimation_0;
     lv_anim_init(&PropertyAnimation_0);
+    lv_anim_set_var(&PropertyAnimation_0, TargetObject);
     lv_anim_set_time(&PropertyAnimation_0, 750);
     lv_anim_set_user_data(&PropertyAnimation_0, PropertyAnimation_0_user_data);
     lv_anim_set_custom_exec_cb(&PropertyAnimation_0, _ui_anim_callback_set_image_angle);
@@ -300,6 +336,7 @@ lv_anim_t * LeftPanelAnim_Animation(lv_obj_t * TargetObject, int delay)
     PropertyAnimation_0_user_data->val = -1;
     lv_anim_t PropertyAnimation_0;
     lv_anim_init(&PropertyAnimation_0);
+    lv_anim_set_var(&PropertyAnimation_0, TargetObject);
     lv_anim_set_time(&PropertyAnimation_0, 1000);
     lv_anim_set_user_data(&PropertyAnimation_0, PropertyAnimation_0_user_data);
     lv_anim_set_custom_exec_cb(&PropertyAnimation_0, _ui_anim_callback_set_x);
@@ -324,6 +361,7 @@ lv_anim_t * RightPanelAnim_Animation(lv_obj_t * TargetObject, int delay)
     PropertyAnimation_0_user_data->val = -1;
     lv_anim_t PropertyAnimation_0;
     lv_anim_init(&PropertyAnimation_0);
+    lv_anim_set_var(&PropertyAnimation_0, TargetObject);
     lv_anim_set_time(&PropertyAnimation_0, 1000);
     lv_anim_set_user_data(&PropertyAnimation_0, PropertyAnimation_0_user_data);
     lv_anim_set_custom_exec_cb(&PropertyAnimation_0, _ui_anim_callback_set_x);
@@ -348,6 +386,7 @@ lv_anim_t * fpsdrag_Animation(lv_obj_t * TargetObject, int delay)
     PropertyAnimation_0_user_data->val = -1;
     lv_anim_t PropertyAnimation_0;
     lv_anim_init(&PropertyAnimation_0);
+    lv_anim_set_var(&PropertyAnimation_0, TargetObject);
     lv_anim_set_time(&PropertyAnimation_0, 600);
     lv_anim_set_user_data(&PropertyAnimation_0, PropertyAnimation_0_user_data);
     lv_anim_set_custom_exec_cb(&PropertyAnimation_0, _ui_anim_callback_set_y);
@@ -372,6 +411,7 @@ lv_anim_t * fpsdown_Animation(lv_obj_t * TargetObject, int delay)
     PropertyAnimation_0_user_data->val = -1;
     lv_anim_t PropertyAnimation_0;
     lv_anim_init(&PropertyAnimation_0);
+    lv_anim_set_var(&PropertyAnimation_0, TargetObject);
     lv_anim_set_time(&PropertyAnimation_0, 600);
     lv_anim_set_user_data(&PropertyAnimation_0, PropertyAnimation_0_user_data);
     lv_anim_set_custom_exec_cb(&PropertyAnimation_0, _ui_anim_callback_set_y);

@@ -72,6 +72,35 @@ CY_SECTION_SHAREDMEM static ipc_msg_t cm55_msg_data =
  ******************************************************************************/
 
 /*******************************************************************************
+* Function Name: cm55_ipc_send_int
+********************************************************************************
+* Summary:
+*  Populates and sends an int-payload IPC command. Holds the lock across
+*  populate+send so callers don't repeat the lock/unlock boilerplate around
+*  cm55_msg_data.
+*
+* Parameters:
+*  cmd  - IPC command ID.
+*  data - Int payload value.
+*
+* Return:
+*  void
+*
+*******************************************************************************/
+static void cm55_ipc_send_int(uint8_t cmd, int data)
+{
+    if (!cm55_ipc_lock())
+    {
+        printf("cm55_ipc_send_int: buffer busy, dropping cmd %u\n", cmd);
+        return;
+    }
+    cm55_msg_data.cmd = cmd;
+    cm55_msg_data.data = data;
+    cm55_send_msg_cm33(&cm55_msg_data);
+    cm55_ipc_unlock();
+}
+
+/*******************************************************************************
 * Function Name: update_fan_speed_ipc
 ********************************************************************************
 * Summary:
@@ -86,10 +115,7 @@ CY_SECTION_SHAREDMEM static ipc_msg_t cm55_msg_data =
 *******************************************************************************/
 void update_fan_speed_ipc(fan_speed_t value)
 {
-    cm55_msg_data.cmd = IPC_CMD_SET_FAN_SPEED;
-    cm55_msg_data.data = value;
-
-    cm55_send_msg_cm33(&cm55_msg_data);
+    cm55_ipc_send_int(IPC_CMD_SET_FAN_SPEED, value);
 }
 
 /*******************************************************************************
@@ -107,10 +133,7 @@ void update_fan_speed_ipc(fan_speed_t value)
 *******************************************************************************/
 void update_device_mode_ipc(thermostat_mode_t value)
 {
-    cm55_msg_data.cmd = IPC_CMD_SET_THERMOSTAT_MODE;
-    cm55_msg_data.data = value;
-
-    cm55_send_msg_cm33(&cm55_msg_data);
+    cm55_ipc_send_int(IPC_CMD_SET_THERMOSTAT_MODE, value);
 }
 
 /*******************************************************************************
@@ -128,10 +151,7 @@ void update_device_mode_ipc(thermostat_mode_t value)
 *******************************************************************************/
 void update_current_temp_ipc(int temperature)
 {
-    cm55_msg_data.cmd = IPC_CMD_SET_CURRENT_TEMP;
-    cm55_msg_data.data = temperature;
-
-    cm55_send_msg_cm33(&cm55_msg_data);
+    cm55_ipc_send_int(IPC_CMD_SET_CURRENT_TEMP, temperature);
 }
 
 /*******************************************************************************
@@ -149,52 +169,7 @@ void update_current_temp_ipc(int temperature)
 *******************************************************************************/
 void update_brightness_ipc(uint8_t level)
 {
-    cm55_msg_data.cmd = IPC_CMD_SET_DISPLAY_BRIGHTNESS;
-    cm55_msg_data.data = level;
-
-    cm55_send_msg_cm33(&cm55_msg_data);
-}
-
-/*******************************************************************************
-* Function Name: update_target_temp_ipc
-********************************************************************************
-* Summary:
-*  Sends an IPC message to update the target temperature on CM33.
-*
-* Parameters:
-*  temperature - Target temperature value.
-*
-* Return:
-*  void
-*
-*******************************************************************************/
-void update_target_temp_ipc(int temperature)
-{
-    cm55_msg_data.cmd = IPC_CMD_SET_TARGET_TEMP;
-    cm55_msg_data.data = temperature;
-
-    cm55_send_msg_cm33(&cm55_msg_data);
-}
-
-/*******************************************************************************
-* Function Name: update_remainig_time_ipc
-********************************************************************************
-* Summary:
-*  Sends an IPC message to update the remaining operation time on CM33.
-*
-* Parameters:
-*  time_s - Remaining time in seconds.
-*
-* Return:
-*  void
-*
-*******************************************************************************/
-void update_remainig_time_ipc(uint32_t time_s)
-{
-    cm55_msg_data.cmd = IPC_CMD_SET_REMAINING_TIME;
-    cm55_msg_data.data = time_s;
-
-    cm55_send_msg_cm33(&cm55_msg_data);
+    cm55_ipc_send_int(IPC_CMD_SET_DISPLAY_BRIGHTNESS, level);
 }
 
 /*******************************************************************************
@@ -212,33 +187,18 @@ void update_remainig_time_ipc(uint32_t time_s)
 *******************************************************************************/
 void update_temperature_data_ipc(device_state_t *data)
 {
+    if (!cm55_ipc_lock())
+    {
+        printf("update_temperature_data_ipc: buffer busy, dropping send\n");
+        return;
+    }
     cm55_msg_data.cmd = IPC_CMD_SET_TEMPERATURE_DATA;
 
     memset(&(cm55_msg_data.device_config), 0, sizeof(cm55_msg_data.device_config));
     memcpy(&(cm55_msg_data.device_config), data, sizeof(cm55_msg_data.device_config));
 
     cm55_send_msg_cm33(&cm55_msg_data);
-}
-
-/*******************************************************************************
-* Function Name: update_system_unit_ipc
-********************************************************************************
-* Summary:
-*  Sends an IPC message to update the temperature unit on CM33.
-*
-* Parameters:
-*  unit - Temperature unit (Celsius or Fahrenheit).
-*
-* Return:
-*  void
-*
-*******************************************************************************/
-void update_system_unit_ipc(temp_unit_t unit)
-{
-    cm55_msg_data.cmd = IPC_CMD_SET_TEMP_UNIT;
-    cm55_msg_data.data = unit;
-
-    cm55_send_msg_cm33(&cm55_msg_data);
+    cm55_ipc_unlock();
 }
 
 /*******************************************************************************
@@ -256,10 +216,7 @@ void update_system_unit_ipc(temp_unit_t unit)
 *******************************************************************************/
 void update_audio_level_ipc(uint16_t level)
 {
-    cm55_msg_data.cmd = IPC_CMD_SET_AUDIO_LEVEL;
-    cm55_msg_data.data = level;
-
-    cm55_send_msg_cm33(&cm55_msg_data);
+    cm55_ipc_send_int(IPC_CMD_SET_AUDIO_LEVEL, level);
 }
 
 /*******************************************************************************
@@ -277,10 +234,7 @@ void update_audio_level_ipc(uint16_t level)
 *******************************************************************************/
 void update_ble_adv_ipc(device_connection_state_t state)
 {
-    cm55_msg_data.cmd = IPC_CMD_UPDATE_CONN_STATE;
-    cm55_msg_data.data = state;
-
-    cm55_send_msg_cm33(&cm55_msg_data);
+    cm55_ipc_send_int(IPC_CMD_UPDATE_CONN_STATE, state);
 }
 
 /*******************************************************************************
@@ -299,6 +253,11 @@ void update_ble_adv_ipc(device_connection_state_t state)
 *******************************************************************************/
 void update_wifi_cred_ipc(const char *ssid, const char *passwd)
 {
+    if (!cm55_ipc_lock())
+    {
+        printf("update_wifi_cred_ipc: buffer busy, dropping send\n");
+        return;
+    }
     cm55_msg_data.cmd = IPC_CMD_UPDATE_CONN_STATE;
     cm55_msg_data.data = DEV_ST_WIFI_CONNECTING;
 
@@ -310,6 +269,7 @@ void update_wifi_cred_ipc(const char *ssid, const char *passwd)
     cm55_msg_data.wifi_info.password[sizeof(cm55_msg_data.wifi_info.password) - 1] = '\0';
 
     cm55_send_msg_cm33(&cm55_msg_data);
+    cm55_ipc_unlock();
 }
 
 /*******************************************************************************
@@ -327,9 +287,7 @@ void update_wifi_cred_ipc(const char *ssid, const char *passwd)
 *******************************************************************************/
 void update_switch_wifi_ipc(void)
 {
-    cm55_msg_data.cmd = IPC_CMD_UPDATE_CONN_STATE;
-    cm55_msg_data.data = DEV_ST_SWITCH_WIFI;
-    cm55_send_msg_cm33(&cm55_msg_data);
+    cm55_ipc_send_int(IPC_CMD_UPDATE_CONN_STATE, DEV_ST_SWITCH_WIFI);
 }
 
 /*******************************************************************************
@@ -347,10 +305,7 @@ void update_switch_wifi_ipc(void)
 *******************************************************************************/
 void request_uid_ipc(void)
 {
-    cm55_msg_data.cmd = IPC_CMD_GET_UID;
-    cm55_msg_data.data = 0;
-
-    cm55_send_msg_cm33(&cm55_msg_data);
+    cm55_ipc_send_int(IPC_CMD_GET_UID, 0);
 }
 
 /*******************************************************************************
@@ -368,10 +323,7 @@ void request_uid_ipc(void)
 *******************************************************************************/
 void request_wifi_delete_ipc(void)
 {
-    cm55_msg_data.cmd = IPC_CMD_RESET_WIFI_SSID_PASS;
-    cm55_msg_data.data = 0;
-
-    cm55_send_msg_cm33(&cm55_msg_data);
+    cm55_ipc_send_int(IPC_CMD_RESET_WIFI_SSID_PASS, 0);
 }
 
 /*******************************************************************************
@@ -389,10 +341,7 @@ void request_wifi_delete_ipc(void)
 *******************************************************************************/
 void update_connection_retries_ipc(connection_retries_t state)
 {
-    cm55_msg_data.cmd = IPC_CMD_UPDATE_CONN_RETRIES;
-    cm55_msg_data.data = state;
-
-    cm55_send_msg_cm33(&cm55_msg_data);
+    cm55_ipc_send_int(IPC_CMD_UPDATE_CONN_RETRIES, state);
 }
 
 /*******************************************************************************
@@ -410,10 +359,7 @@ void update_connection_retries_ipc(connection_retries_t state)
 *******************************************************************************/
 void update_connection_state_ipc(device_connection_state_t state)
 {
-    cm55_msg_data.cmd = IPC_CMD_UPDATE_CONN_STATE;
-    cm55_msg_data.data = state;
-
-    cm55_send_msg_cm33(&cm55_msg_data);
+    cm55_ipc_send_int(IPC_CMD_UPDATE_CONN_STATE, state);
 }
 
 /*******************************************************************************
@@ -431,11 +377,17 @@ void update_connection_state_ipc(device_connection_state_t state)
 *******************************************************************************/
 void send_device_config(const device_state_t *config)
 {
+    if (!cm55_ipc_lock())
+    {
+        printf("send_device_config: buffer busy, dropping send\n");
+        return;
+    }
     cm55_msg_data.cmd = IPC_CMD_DEVICE_CONFIG;
     cm55_msg_data.data = 0;
     cm55_msg_data.device_config = *config;
 
     cm55_send_msg_cm33(&cm55_msg_data);
+    cm55_ipc_unlock();
 }
 
 /*******************************************************************************
@@ -453,10 +405,7 @@ void send_device_config(const device_state_t *config)
 *******************************************************************************/
 void send_humidity_to_m33(uint32_t hum)
 {
-    cm55_msg_data.cmd = IPC_CMD_GET_CURRENT_HUMIDITY;
-    cm55_msg_data.data = hum;
-
-    cm55_send_msg_cm33(&cm55_msg_data);
+    cm55_ipc_send_int(IPC_CMD_GET_CURRENT_HUMIDITY, hum);
 }
 
 /*******************************************************************************
@@ -474,10 +423,7 @@ void send_humidity_to_m33(uint32_t hum)
 *******************************************************************************/
 void send_switch_to_ble_cmd(void)
 {
-    cm55_msg_data.cmd = IPC_CMD_SWITCH_TO_BLE;
-    cm55_msg_data.data = 0;
-
-    cm55_send_msg_cm33(&cm55_msg_data);
+    cm55_ipc_send_int(IPC_CMD_SWITCH_TO_BLE, 0);
 }
 
 /* [] END OF FILE */

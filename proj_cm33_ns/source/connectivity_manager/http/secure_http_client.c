@@ -52,7 +52,6 @@
 /* HTTPS client task header file. */
 #include "secure_http_client.h"
 #include "cy_http_client_api.h"
-#include "secure_keys.h"
 #include "lwip/ip_addr.h"
 
 /* FreeRTOS header file */
@@ -68,6 +67,8 @@
 #define MEMSET_VAL                                   (0U)
 #define HTTPS_CLIENT_TASK_DELAY_MS                   (15U * 60U * 1000U) /* 15 Minutes */
 #define HTTP_CLIENT_CACHE_CLEANUP_DELAY_MS           (500U) /* 5 Minutes */
+#define HTTP_CONNECT_MAX_RETRIES                     (3U)
+#define HTTP_CONNECT_RETRY_DELAY_MS                  (500U)
 /*******************************************************************************
  *                              GLOBAL VARIABLES
  *****************************************************************************/
@@ -86,18 +87,15 @@ cy_http_client_request_header_t request;
 cy_http_client_header_t header;
 cy_http_client_response_t response;
 
-bool time_synced = false;
-
-static char latitude[16];   // For lat extracted from "loc"
-static char longitude[16];  // For lon extracted from "loc"
-static char timezone[32];   // For timezone
-static char city[16];       // For City
-static char timedata[32];
+static char latitude[16];
+static char longitude[16];
+/* Sized to match the IPC string field (ipc_msg_t.char_value) */
+static char city[32];
+static bool location_received = false;
 static char temperature[16];
-static char hummidity[16];
-static char windspeed[16];
 static char weathercode[16];
-static char formatted_time[32];
+static bool weather_received = false;
+static char weather_server_host[] = WEATHER_SERVER_HOST;
 
 /* Handle for the HTTPS client task - used to receive wake-up notifications
  * (e.g. after factory reset) so the 15-minute periodic delay can be cut short. */
@@ -106,18 +104,17 @@ TaskHandle_t https_task_handle = NULL;
 /*******************************************************************************
  *                          FUNCTION PROTOTYPES
  *****************************************************************************/
-static void fetch_https_client_method(void);
+static bool fetch_https_client_method(void);
 static void disconnect_callback_handler(cy_http_client_t handle,
                                  cy_http_client_disconn_type_t type, void *args);
 static cy_rslt_t send_http_request(cy_http_client_t handle,
                             cy_http_client_method_t method,const char * pPath);
 static cy_rslt_t configure_https_client(const char *host_name, uint16_t port);
+static cy_rslt_t http_client_connect_with_retry(cy_http_client_t handle);
 static void delete_http_client();
-void url_encode_component(const char *in, char *out, size_t out_size);
 
 void parse_json_location_payload(const char* payload, uint32_t payload_len);
 void parse_json_weather_payload(const char* payload, uint32_t payload_len);
-void parse_json_time_payload(const char* payload, uint32_t payload_len);
 /*******************************************************************************
  *                          FUNCTION DEFINITIONS
  *****************************************************************************/
@@ -158,8 +155,6 @@ static void disconnect_callback_handler(cy_http_client_t handle,
 {
     printf("\nApplication Disconnect callback triggered for handle = "
             "%p type=%d\n", handle, type);
-
-    time_synced = false;
 }
 /*******************************************************************************
 * Function Name: send_http_request
@@ -266,6 +261,39 @@ static cy_rslt_t configure_https_client(const char *host_name, uint16_t port)
 }
 
 /*******************************************************************************
+* Function Name: http_client_connect_with_retry
+********************************************************************************
+* Summary:
+*  Connects the HTTP client to its configured server, retrying a few times
+*  with a short delay to ride out transient failures (e.g. right after a
+*  Wi-Fi reconnect, before DNS/routing has fully settled).
+*
+* Parameters:
+*  handle - The HTTP client instance to connect.
+*
+* Return:
+*  cy_rslt_t: Returns CY_RSLT_SUCCESS on success, else the last error code.
+*
+*******************************************************************************/
+static cy_rslt_t http_client_connect_with_retry(cy_http_client_t handle)
+{
+    cy_rslt_t result = CY_RSLT_TYPE_ERROR;
+    uint8_t retries = 0;
+
+    do
+    {
+        result = cy_http_client_connect(handle, TRANSPORT_SEND_RECV_TIMEOUT_MS, TRANSPORT_SEND_RECV_TIMEOUT_MS);
+        if (CY_RSLT_SUCCESS == result)
+        {
+            break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(HTTP_CONNECT_RETRY_DELAY_MS));
+    } while (++retries < HTTP_CONNECT_MAX_RETRIES);
+
+    return result;
+}
+
+/*******************************************************************************
 * Function Name: https_client_task
 ********************************************************************************
 * Summary:
@@ -302,8 +330,11 @@ void https_client_task(void *arg)
     {
         if (cy_wcm_is_connected_to_ap())
         {
-            // Execute HTTP operations (fetch geolocation, weather data & timezone)
-            fetch_https_client_method();
+            // Execute HTTP operations (fetch location and, if enabled, weather data)
+            if (!fetch_https_client_method())
+            {
+                signal_http_fetch_failed();
+            }
 
             /* Wait for the periodic interval OR until another task wakes us
              * (factory-reset notifies this task so the next fetch
@@ -323,9 +354,12 @@ void https_client_task(void *arg)
 * Function Name: fetch_https_client_method
 ********************************************************************************
 * Summary:
-*  The function handles an http methods.
+*  Fetches location and, if enabled, weather data and syncs them to the UI.
+*
+* Return:
+*  bool - true if all enabled data was synced, false otherwise.
 *******************************************************************************/
-static void fetch_https_client_method(void)
+static bool fetch_https_client_method(void)
 {
     cy_rslt_t result = CY_RSLT_TYPE_ERROR;
     http_client_method = CY_HTTP_CLIENT_METHOD_GET;
@@ -334,57 +368,71 @@ static void fetch_https_client_method(void)
     signal_http_fetching_start();
     vTaskDelay(pdMS_TO_TICKS(100));
     
-    /*********************************************** Step 1: Fetch geolocation data *******************************************/
+    /*********************************************** Step 1: Fetch location data *********************************************/
     /* Location data will be synced via IPC_CMD_LOCATION_SYNC when received */
     
-    printf("\nConfiguring client for Geolocation API (ipinfo.io)...\n");
-    result = configure_https_client(GEO_SERVER_HOST, GEO_PORT);
+    printf("\nConfiguring HTTP client for location service...\n");
+    result = configure_https_client(LOCATION_SERVER_HOST, LOCATION_SERVER_PORT);
     if (CY_RSLT_SUCCESS != result) {
-        ERR_INFO(("Failed to configure HTTP client for geolocation API.\n"));
-        return;
+        ERR_INFO(("Failed to configure HTTP client for location service.\n"));
+        return false;
     }
 
-    /* Connect the HTTP client to the geolocation server */
-    result = cy_http_client_connect(https_client, TRANSPORT_SEND_RECV_TIMEOUT_MS, TRANSPORT_SEND_RECV_TIMEOUT_MS);
+    /* Connect the HTTP client to the location server */
+    result = http_client_connect_with_retry(https_client);
     if (CY_RSLT_SUCCESS != result) {
-        ERR_INFO(("Failed to connect to the geolocation server.\n"));
-        return;
+        ERR_INFO(("Failed to connect to the location server.\n"));
+        delete_http_client();
+        return false;
     }
 
-    printf("\nFetching geolocation data from ipinfo.io...\n");
+    printf("\nFetching location data...\n");
 
-    result = send_http_request(https_client, http_client_method, GEO_PATH);
+    location_received = false;
+    result = send_http_request(https_client, http_client_method, LOCATION_SERVER_PATH);
     if (CY_RSLT_SUCCESS == result) {
-        printf("\nSuccessfully received geolocation response. Parsing JSON...\n");
+        printf("\nSuccessfully received location response. Parsing JSON...\n");
         // Parse the received JSON
         parse_json_location_payload((const char *)response.body, response.body_len);
     } else {
-        ERR_INFO(("Failed to fetch geolocation data.\n"));
-        return;
+        ERR_INFO(("Failed to fetch location data.\n"));
+        delete_http_client();
+        return false;
     }
     delete_http_client();
-     
+
+    if (!location_received) {
+        ERR_INFO(("Location not found in the response.\n"));
+        return false;
+    }
+
     /*********************************************** Step 2: Fetch weather data ***********************************************/
     /* Weather data will be synced via IPC_CMD_WEATHER_SYNC when received */
-    
-    char weather_path[256] = {0};
-    snprintf(weather_path, sizeof(weather_path),
-             "/v1/forecast?latitude=%s&longitude=%s&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code", latitude, longitude);
-
-    printf("\nFetching weather data from Open-Meteo...\n");
-    result = configure_https_client(WEATHER_SERVER_HOST, WEATHER_PORT);
-    if (CY_RSLT_SUCCESS != result) {
-        ERR_INFO(("Failed to configure HTTP client for weather API.\n"));
-        return;
+    if (0 == strcmp(weather_server_host, WEATHER_SERVER_HOST_PLACEHOLDER))
+    {
+        printf("\nWeather service not configured: set WEATHER_SERVER_HOST in secure_http_client.h. Skipping weather sync.\n");
+        return true;
     }
 
-    result = cy_http_client_connect(https_client, TRANSPORT_SEND_RECV_TIMEOUT_MS, TRANSPORT_SEND_RECV_TIMEOUT_MS);
+    char weather_path[256] = {0};
+    snprintf(weather_path, sizeof(weather_path), WEATHER_PATH_FORMAT, latitude, longitude);
+
+    printf("\nFetching weather data...\n");
+    result = configure_https_client(weather_server_host, WEATHER_SERVER_PORT);
+    if (CY_RSLT_SUCCESS != result) {
+        ERR_INFO(("Failed to configure HTTP client for weather service.\n"));
+        return false;
+    }
+
+    result = http_client_connect_with_retry(https_client);
     if (CY_RSLT_SUCCESS != result) {
         ERR_INFO(("Failed to connect to weather server.\n"));
-        return;
+        delete_http_client();
+        return false;
     }
 
-    printf("\nSending request to Weather API...\n");
+    printf("\nSending request to weather service...\n");
+    weather_received = false;
     result = send_http_request(https_client, http_client_method, weather_path);
     if (CY_RSLT_SUCCESS != result) {
         ERR_INFO(("Failed to fetch weather data.\n"));
@@ -395,43 +443,11 @@ static void fetch_https_client_method(void)
 
     delete_http_client();
 
-    /*********************************************** Step 3: Fetch timezone data **********************************************/
-    /* Date/time data will be synced via individual IPC_CMD_*_SYNC messages when received */
-    
-    static bool timeSynced = false;
-
-    if(!timeSynced) 
-    {
-        char timezone_path[256] = {0};
-        snprintf(timezone_path, sizeof(timezone_path),
-                "/v2.1/get-time-zone?key=OASF0WKZLRVD&format=json&by=position&lat=%s&lng=%s", latitude, longitude);
-
-        printf("\nFetching timezone data from timezonedb...\n");
-        result = configure_https_client(TIMEZONE_SERVER_HOST, TIMEZONE_PORT);
-        if (CY_RSLT_SUCCESS != result) {
-            ERR_INFO(("Failed to configure HTTP client for timezone API.\n"));
-            return;
-        }
-
-        result = cy_http_client_connect(https_client, TRANSPORT_SEND_RECV_TIMEOUT_MS, TRANSPORT_SEND_RECV_TIMEOUT_MS);
-        if (CY_RSLT_SUCCESS != result) {
-            ERR_INFO(("Failed to connect to timezone server.\n"));
-            return;
-        }
-
-        printf("\nSending request to timezone API...\n");
-        result = send_http_request(https_client, http_client_method, timezone_path);
-        if (CY_RSLT_SUCCESS != result) {
-            ERR_INFO(("Failed to fetch timezone data.\n"));
-        }
-        else{
-            parse_json_time_payload((const char *)response.body, response.body_len);
-        }
-
-        delete_http_client();
-
-        timeSynced = true; // Set flag to avoid re-syncing time on next loop iteration
+    if (!weather_received) {
+        return false;
     }
+
+    return true;
 }
 
 /*******************************************************************************
@@ -554,45 +570,6 @@ static size_t transliterate_utf8_to_ascii(const char* in, char* out, size_t out_
     return oi;
 }
 
-/*******************************************************************************
-* Function Name: url_encode_component
-********************************************************************************
-* Summary:
-*  Percent-encodes a string for use in a URL query component.
-*
-* Parameters:
-*  in - Input string to encode.
-*  out - Output buffer for encoded string.
-*  out_size - Size of output buffer.
-*
-* Return:
-*  void
-*
-*******************************************************************************/
-void url_encode_component(const char *in, char *out, size_t out_size)
-{
-    static const char hex[] = "0123456789ABCDEF";
-    size_t oi = 0;
-    for (size_t i = 0; in[i] != '\0' && oi + 3 < out_size; i++) {
-        unsigned char c = (unsigned char)in[i];
-        if ((c >= 'A' && c <= 'Z') ||
-            (c >= 'a' && c <= 'z') ||
-            (c >= '0' && c <= '9') ||
-            c == '-' || c == '_' || c == '.' || c == '~') {
-            out[oi++] = c;
-        } else if (c == ' ') {
-            out[oi++] = '%';
-            out[oi++] = '2';
-            out[oi++] = '0';
-        } else {
-            out[oi++] = '%';
-            out[oi++] = hex[c >> 4];
-            out[oi++] = hex[c & 0x0F];
-        }
-    }
-    out[oi] = '\0';
-}
-
 /*****************************************************************************************************************************************************/
 /* JSON Process for Location */
 /*****************************************************************************************************************************************************/
@@ -601,7 +578,7 @@ void url_encode_component(const char *in, char *out, size_t out_size)
 * Function Name: json_location_callback
 ********************************************************************************
 * Summary:
-*  JSON parser callback that extracts location, timezone, and city fields.
+*  JSON parser callback that extracts the latitude, longitude, and city fields.
 *
 * Parameters:
 *  json_object - Pointer to parsed JSON object.
@@ -618,28 +595,16 @@ cy_rslt_t json_location_callback(cy_JSON_object_t* json_object, void* arg)
         return CY_RSLT_JSON_GENERIC_ERROR;
     }
 
-    if (strncmp(json_object->object_string, "loc", json_object->object_string_length) == 0 &&
-        strlen("loc") == json_object->object_string_length) {
-
-        // Parse "loc" value, e.g., "12.9719,77.5937"
-        char temp[64] = {0};
-        snprintf(temp, sizeof(temp), "%.*s", json_object->value_length, json_object->value);
-
-        char* separator = strchr(temp, ',');
-        if (separator != NULL) {
-            *separator = '\0';  // Null-terminate latitude
-            snprintf(latitude, sizeof(latitude), "%s", temp);
-            snprintf(longitude, sizeof(longitude), "%s", separator + 1);  // Parse longitude
-            printf("Extracted -> Latitude: %s, Longitude: %s\n", latitude, longitude);
-        } else {
-            printf("Error: Could not split 'loc' into latitude and longitude!\n");
-        }
-    }
-    else if (strncmp(json_object->object_string, "timezone", json_object->object_string_length) == 0 &&
-             strlen("timezone") == json_object->object_string_length) {
-        snprintf(timezone, sizeof(timezone), "%.*s",
+    if (strncmp(json_object->object_string, "latitude", json_object->object_string_length) == 0 &&
+        strlen("latitude") == json_object->object_string_length) {
+        snprintf(latitude, sizeof(latitude), "%.*s",
                  (int)json_object->value_length, json_object->value);
-        printf("Extracted -> Timezone: %s\n", timezone);
+    }
+    else if (strncmp(json_object->object_string, "longitude", json_object->object_string_length) == 0 &&
+             strlen("longitude") == json_object->object_string_length) {
+        snprintf(longitude, sizeof(longitude), "%.*s",
+                 (int)json_object->value_length, json_object->value);
+        printf("Extracted -> Latitude: %s, Longitude: %s\n", latitude, longitude);
     }
     else if (strncmp(json_object->object_string, "city", json_object->object_string_length) == 0 &&
              strlen("city") == json_object->object_string_length) {
@@ -652,6 +617,7 @@ cy_rslt_t json_location_callback(cy_JSON_object_t* json_object, void* arg)
         printf("Transliterated -> city (ASCII): %s\n", city_ascii);
 
         set_location_sync(city_ascii);
+        location_received = true;
     }
     else {
     }
@@ -704,6 +670,7 @@ void parse_json_location_payload(const char* payload, uint32_t payload_len)
 
     free(valid_json);
 }
+
 /*****************************************************************************************************************************************************/
 /* JSON Process for Weather */
 /*****************************************************************************************************************************************************/
@@ -712,7 +679,9 @@ void parse_json_location_payload(const char* payload, uint32_t payload_len)
 * Function Name: json_weather_cb
 ********************************************************************************
 * Summary:
-*  JSON parser callback that extracts weather data fields.
+*  JSON parser callback that extracts weather data fields. The keys below are an
+*  example; adapt them to your weather service's response. The weather code is
+*  expected as a WMO weather interpretation code.
 *
 * Parameters:
 *  object - Pointer to parsed JSON object.
@@ -727,25 +696,9 @@ static cy_rslt_t json_weather_cb(cy_JSON_object_t *object, void *arg)
     if(object == NULL || object->object_string == NULL)
         return CY_RSLT_SUCCESS;
 
-    if (strncmp(object->object_string, "time", object->object_string_length) == 0 &&
-        object->value_type == JSON_STRING_TYPE)
-    {
-        snprintf(timedata, sizeof(timedata), "%.*s",
-                 (int)object->value_length, object->value);
-    }
-    else if (strncmp(object->object_string, "temperature_2m", object->object_string_length) == 0)
+    if (strncmp(object->object_string, "temperature_2m", object->object_string_length) == 0)
     {
         snprintf(temperature, sizeof(temperature), "%.*s",
-                 (int)object->value_length, object->value);
-    }
-    else if (strncmp(object->object_string, "relative_humidity_2m", object->object_string_length) == 0)
-    {
-        snprintf(hummidity, sizeof(hummidity), "%.*s",
-                 (int)object->value_length, object->value);
-    }
-    else if (strncmp(object->object_string, "wind_speed_10m", object->object_string_length) == 0)
-    {
-        snprintf(windspeed, sizeof(windspeed), "%.*s",
                  (int)object->value_length, object->value);
     }
     else if (strncmp(object->object_string, "weather_code", object->object_string_length) == 0)
@@ -797,12 +750,13 @@ void parse_json_weather_payload(const char* payload, uint32_t payload_len)
 
     if (result == CY_RSLT_SUCCESS)
     {
-        printf("Temperature: %s �C\n", temperature);
+        printf("Temperature: %s °C\n", temperature);
 
         vTaskDelay(pdMS_TO_TICKS(50)); 
         set_weather_sync(temperature);
         vTaskDelay(pdMS_TO_TICKS(50)); 
         set_weather_code_sync(weathercode);
+        weather_received = true;
     }
     else
     {
@@ -810,215 +764,6 @@ void parse_json_weather_payload(const char* payload, uint32_t payload_len)
     }
 
     free(json_buf);
-}
-
-/*****************************************************************************************************************************************************/
-/* JSON Process for Timezone */
-/*****************************************************************************************************************************************************/
-
-/*******************************************************************************
-* Function Name: json_time_cb
-********************************************************************************
-* Summary:
-*  JSON parser callback that extracts the formatted timestamp string.
-*
-* Parameters:
-*  object - Pointer to parsed JSON object.
-*  arg - User argument (unused).
-*
-* Return:
-*  cy_rslt_t - CY_RSLT_SUCCESS on success.
-*
-*******************************************************************************/
-static cy_rslt_t json_time_cb(cy_JSON_object_t *object, void *arg)
-{
-    if (object == NULL || object->object_string == NULL)
-        return CY_RSLT_SUCCESS;
-
-    if (object->object_string_length == (sizeof("formatted") - 1) &&
-        strncmp(object->object_string, "formatted", object->object_string_length) == 0 &&
-        object->value_type == JSON_STRING_TYPE)
-    {
-        // Ensure proper bounds and null-termination
-        size_t n = (object->value_length < sizeof(formatted_time) - 1)
-                    ? object->value_length
-                    : sizeof(formatted_time) - 1;
-        memcpy(formatted_time, object->value, n);
-        formatted_time[n] = '\0';
-    }
-
-    return CY_RSLT_SUCCESS;
-}
-
-/*******************************************************************************
-* Function Name: parse_formatted_to_components
-********************************************************************************
-* Summary:
-*  Parses a formatted time string into individual date/time components.
-*
-* Parameters:
-*  fmt - Formatted time string ("YYYY-MM-DD HH:MM:SS").
-*  year - Pointer to store parsed year.
-*  month - Pointer to store parsed month.
-*  day - Pointer to store parsed day.
-*  hour - Pointer to store parsed hour.
-*  minute - Pointer to store parsed minute.
-*  second - Pointer to store parsed second.
-*
-* Return:
-*  int - 0 on success, negative value on error.
-*
-*******************************************************************************/
-static int parse_formatted_to_components(const char* fmt,
-                                         int* year, int* month, int* day,
-                                         int* hour, int* minute, int* second)
-{
-    if (fmt == NULL) return -1;
-
-    // Prefer sscanf for simplicity; width specifiers constrain the read.
-    // Example: "2025-10-27 15:10:59"
-    int y, m, d, hh, mm, ss;
-    int n = sscanf(fmt, "%4d-%2d-%2d %2d:%2d:%2d", &y, &m, &d, &hh, &mm, &ss);
-    if (n != 6) {
-        return -2;
-    }
-
-    // Basic range checks
-    if (m < 1 || m > 12) return -3;
-    if (d < 1 || d > 31) return -4;
-    if (hh < 0 || hh > 23) return -5;
-    if (mm < 0 || mm > 59) return -6;
-    if (ss < 0 || ss > 59) return -7;
-
-    *year = y; *month = m; *day = d;
-    *hour = hh; *minute = mm; *second = ss;
-    return 0;
-}
-
-/*******************************************************************************
-* Function Name: weekday_from_date
-********************************************************************************
-* Summary:
-*  Computes the day-of-week from a Gregorian date using Sakamoto's algorithm.
-*
-* Parameters:
-*  y - Year.
-*  m - Month (1-12).
-*  d - Day (1-31).
-*
-* Return:
-*  int - Day of week (0=Sun, 1=Mon, ..., 6=Sat).
-*
-*******************************************************************************/
-static int weekday_from_date(int y, int m, int d)
-{
-    static const int t[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
-    if (m < 3) y -= 1;
-    int w = (y + y/4 - y/100 + y/400 + t[m-1] + d) % 7;
-    return w;
-}
-
-/*******************************************************************************
-* Function Name: parse_json_time_payload
-********************************************************************************
-* Summary:
-*  Parses a timezone JSON response and syncs time components via IPC.
-*
-* Parameters:
-*  payload - Pointer to the JSON payload string.
-*  payload_len - Length of the payload.
-*
-* Return:
-*  void
-*
-*******************************************************************************/
-void parse_json_time_payload(const char* payload, uint32_t payload_len)
-{
-    if(!time_synced)
-    {
-        if (payload == NULL || payload_len == 0) {
-            printf("Error: Payload is NULL or empty!\n");
-            return;
-        }
-
-        char *json_buf = malloc(payload_len + 1);
-        if (!json_buf) {
-            printf("Error: malloc failed at FUN: %s!\n", __FUNCTION__);
-            return;
-        }
-        memcpy(json_buf, payload, payload_len);
-        json_buf[payload_len] = '\0';
-
-        cy_rslt_t reg_result = cy_JSON_parser_register_callback(json_time_cb, NULL);
-        if (reg_result != CY_RSLT_SUCCESS) {
-            printf("Error: Failed to register JSON callback! Error: %ld\n", (long)reg_result);
-            free(json_buf);
-            return;
-        }
-
-        cy_rslt_t result = cy_JSON_parser(json_buf, payload_len);
-
-        if (result == CY_RSLT_SUCCESS)
-        {
-            printf("Time(Local): %s\n", formatted_time);
-        }
-        else
-        {
-            printf("JSON parsing failed! Error: 0x%08lX\n", (long)result);
-        }
-
-        if (formatted_time[0] == '\0') {
-            printf("Error: formatted time is missing!\n");
-            free(json_buf);
-            return;
-        }
-
-        int year, month, day, hour, minute, second;
-        if (parse_formatted_to_components(formatted_time, &year, &month, &day, &hour, &minute, &second) != 0) {
-            printf("Error: failed to parse formatted time: '%s'\n", formatted_time);
-            free(json_buf);
-            return;
-        }
-
-        // Zero-padded strings
-        char hour_str[3], min_str[3], sec_str[3], day_str[3], month_str[3], year_str[5];
-
-        snprintf(hour_str, sizeof(hour_str),  "%02d", hour);
-        snprintf(min_str,  sizeof(min_str),   "%02d", minute);
-        snprintf(sec_str,  sizeof(sec_str),   "%02d", second);
-        snprintf(day_str,  sizeof(day_str),   "%02d", day);
-        snprintf(month_str,sizeof(month_str), "%02d", month);
-        snprintf(year_str, sizeof(year_str),  "%04d", year);
-
-        // Sync in requested order with delays
-        set_hour_sync(hour_str);
-        vTaskDelay(pdMS_TO_TICKS(300));
-
-        set_minute_sync(min_str);
-        vTaskDelay(pdMS_TO_TICKS(300));
-
-        set_second_sync(sec_str);
-        vTaskDelay(pdMS_TO_TICKS(300));
-
-        // Weekday sync
-        const char* weekdays[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
-        int wday = weekday_from_date(year, month, day);
-        set_vaar_sync(weekdays[wday]);
-        vTaskDelay(pdMS_TO_TICKS(250));
-
-        set_year_sync(year_str);
-        vTaskDelay(pdMS_TO_TICKS(300));
-
-        set_month_sync(month_str);
-        vTaskDelay(pdMS_TO_TICKS(300));
-
-        set_date_sync(day_str);
-        vTaskDelay(pdMS_TO_TICKS(300));
-
-        free(json_buf);
-        
-        time_synced = true;
-    }
 }
 
 /*****************************************************************************************************************************************************/

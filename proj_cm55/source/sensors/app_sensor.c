@@ -63,7 +63,6 @@ TimerHandle_t restart_sensor_timer = NULL;
 /*******************************************************************************
  *                             STATIC VARIABLES
  ******************************************************************************/
-static TimerHandle_t sensor_read_hdlr;
 static uint32_t sensor_sampling_intv = SENSOR_SAMPLING_INTERVAL_ACTIVE;
 
 /****************************************************************************

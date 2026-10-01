@@ -287,18 +287,11 @@ typedef enum {
     IPC_CMD_MAX,
     IPC_CMD_WEATHER_SYNC,                // Weather sync
     IPC_CMD_LOCATION_SYNC,               // Location sync
-    IPC_CMD_HOUR_SYNC ,                  // Time sync   
-    IPC_CMD_MINUTE_SYNC,                 // Minute sync
-    IPC_CMD_SECOND_SYNC,                 // Second sync
-    IPC_CMD_DATE_SYNC,                   // Date sync
-    IPC_CMD_MONTH_SYNC,                  // Month sync
-    IPC_CMD_VAAR_SYNC,                   // Vaar sync
-    IPC_CMD_YEAR_SYNC,                   // Year sync 
     IPC_CMD_WEATHER_CODE_SYNC,
     IPC_CMD_HTTP_FETCHING_START,         // HTTP data fetching in progress
-    IPC_CMD_HTTP_LOCATION_FETCHING,      // Location data fetching with dashes
-    IPC_CMD_HTTP_WEATHER_FETCHING,       // Weather data fetching with dashes
-    IPC_CMD_HTTP_DATETIME_FETCHING,      // Date/time data fetching with dashes
+    IPC_CMD_HTTP_FETCH_FAILED,           // HTTP data fetch failed
+
+    IPC_CMD_HIDE_CONN_POPUP,             // Dismiss connectivity/pairing popups
 
 } ipc_command_e;
 

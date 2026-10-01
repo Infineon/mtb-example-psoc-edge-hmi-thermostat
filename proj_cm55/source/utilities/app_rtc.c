@@ -361,6 +361,13 @@ void set_date_time_rtc(DateTime *info)
 {
     cy_stc_rtc_config_t new_rtc_config;
 
+    if (!validate_date_time(info->second, info->minute, info->hour,
+                            info->day, info->month, info->year))
+    {
+        LOG_ERROR(CYLF_DEF, "set_date_time_rtc: invalid date/time, ignoring update.\n");
+        return;
+    }
+
     /* Read the current RTC configuration to preserve settings like hrFormat. */
     Cy_RTC_GetDateAndTime(&new_rtc_config);
 
@@ -932,6 +939,14 @@ cy_rslt_t rtc_set_time_safe_from_http(uint16_t year, uint8_t month, uint8_t day,
                                              uint8_t hour, uint8_t minute, uint8_t second)
 {
     cy_rslt_t r;
+
+    /* Reject clearly invalid date/time before touching the external RTC.
+     * Valid inputs are unaffected. */
+    if (!validate_date_time(second, minute, hour, day, month, year))
+    {
+        LOG_ERROR(CYLF_DEF, "rtc_set_time_safe_from_http: invalid date/time, ignoring update.\n");
+        return CY_RSLT_TYPE_ERROR;
+    }
 
     /* 1) Stop oscillator while setting seconds (write seconds with ST=0) */
     r = rtc_write_register(REG_RTCSEC, (to_bcd(second) & 0x7F));

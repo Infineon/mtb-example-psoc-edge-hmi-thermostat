@@ -90,11 +90,8 @@ void ui_event_UpdateButton(lv_event_t * e)
     lv_event_code_t event_code = lv_event_get_code(e);
 
     if(event_code == LV_EVENT_CLICKED) {
-        //lv_obj_clear_flag(ui_FWUpdatespinner, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(ui_FWUpdatespinner, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(ui_Fwupdatespinrlabel, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(ui_Fwupdatelatestlbl, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(ui_fwdownloadbtnlbl, LV_OBJ_FLAG_HIDDEN);
         _ui_screen_change(&ui_FWUpdateScreen, LV_SCR_LOAD_ANIM_FADE_ON, 50, 0, &ui_FWUpdateScreen_screen_init);
         //start_check_fw_update_timer();
         lv_obj_clear_flag(ui_Fwupdatelatestlbl, LV_OBJ_FLAG_HIDDEN);

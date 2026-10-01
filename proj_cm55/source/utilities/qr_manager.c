@@ -82,6 +82,12 @@ void qr_manager_init(qr_manager_t * manager, lv_obj_t * parent_container, uint16
 {
     if (!manager) return;
 
+    if (manager->qr_obj)
+    {
+        lv_obj_del(manager->qr_obj);
+        manager->qr_obj = NULL;
+    }
+
     manager->parent = parent_container;
     manager->size = size;
 
