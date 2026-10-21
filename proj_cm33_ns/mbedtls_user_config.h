@@ -30,113 +30,6 @@
 #define MBEDTLS_USER_CONFIG_HEADER
 
 /**
- * Compiling Mbed TLS for Cortex-M0/0+/1/M23 cores with optimization enabled and on ARMC6 compiler results in errors. 
- * These cores lack the required full Thumb-2 support, causing the inline assembly to require more registers than available.
- * The workaround is to use 'MULADDC_CANNOT_USE_R7' compilation flag, or without optimization flag, 
- * but note that this will compile without the assmebly optimization.
- *
- * To read more about this issue, refer to https://github.com/ARMmbed/mbed-os/pull/14529/commits/86e7bc559b0d1a055bf84ea9249763d2349fb6e8
- */
-
-#if defined(COMPONENT_CM0P) && defined(COMPONENT_ARM)
-#define MULADDC_CANNOT_USE_R7
-#endif
-
-/* Currently there is a bug with MBEDTLS 3.4.0 compilation with IAR compiler when assembly instructions are enabled. Hence
- * disabling assembly instructions for IAR. This will be fixed in future MBEDTLS releases.
- */
-#if defined (__IAR_SYSTEMS_ICC__)
-#undef MBEDTLS_HAVE_ASM
-#endif
-
-/**
- * \def MBEDTLS_HAVE_TIME_DATE
- *
- * System has time.h, time(), and an implementation for
- * mbedtls_platform_gmtime_r() (see below).
- * The time needs to be correct (not necessarily very accurate, but at least
- * the date should be correct). This is used to verify the validity period of
- * X.509 certificates.
- *
- * Comment if your system does not have a correct clock.
- *
- * \note mbedtls_platform_gmtime_r() is an abstraction in platform_util.h that
- * behaves similarly to the gmtime_r() function from the C standard. Refer to
- * the documentation for mbedtls_platform_gmtime_r() for more information.
- *
- * \note It is possible to configure an implementation for
- * mbedtls_platform_gmtime_r() at compile-time by using the macro
- * MBEDTLS_PLATFORM_GMTIME_R_ALT.
- */
-#undef MBEDTLS_HAVE_TIME_DATE
-
-
-/**
- * \def MBEDTLS_PLATFORM_EXIT_ALT
- *
- * MBEDTLS_PLATFORM_XXX_ALT: Uncomment a macro to let mbed TLS support the
- * function in the platform abstraction layer.
- *
- * Example: In case you uncomment MBEDTLS_PLATFORM_PRINTF_ALT, mbed TLS will
- * provide a function "mbedtls_platform_set_printf()" that allows you to set an
- * alternative printf function pointer.
- *
- * All these define require MBEDTLS_PLATFORM_C to be defined!
- *
- * \note MBEDTLS_PLATFORM_SNPRINTF_ALT is required on Windows;
- * it will be enabled automatically by check_config.h
- *
- * \warning MBEDTLS_PLATFORM_XXX_ALT cannot be defined at the same time as
- * MBEDTLS_PLATFORM_XXX_MACRO!
- *
- * Requires: MBEDTLS_PLATFORM_TIME_ALT requires MBEDTLS_HAVE_TIME
- *
- * Uncomment a macro to enable alternate implementation of specific base
- * platform function
- */
-#define MBEDTLS_PLATFORM_TIME_ALT
-/* #define MBEDTLS_PLATFORM_EXIT_ALT
-#define MBEDTLS_PLATFORM_FPRINTF_ALT
-#define MBEDTLS_PLATFORM_PRINTF_ALT
-#define MBEDTLS_PLATFORM_SNPRINTF_ALT
-#define MBEDTLS_PLATFORM_NV_SEED_ALT
-#define MBEDTLS_PLATFORM_SETUP_TEARDOWN_ALT */
-
-/**
- * \def MBEDTLS_ENTROPY_HARDWARE_ALT
- *
- * Uncomment this macro to let mbed TLS use your own implementation of a
- * hardware entropy collector.
- *
- * Your function must be called \c mbedtls_hardware_poll(), have the same
- * prototype as declared in entropy_poll.h, and accept NULL as first argument.
- *
- * Uncomment to use your own hardware entropy collector.
- */
-#define MBEDTLS_ENTROPY_HARDWARE_ALT
-/**
- * \def MBEDTLS_ECP_DP_SECP192R1_ENABLED
- *
- * MBEDTLS_ECP_XXXX_ENABLED: Enables specific curves within the Elliptic Curve
- * module.  By default all supported curves are enabled.
- *
- * Comment macros to disable the curve and functions for it
- */
-#undef MBEDTLS_ECP_DP_SECP192R1_ENABLED
-#undef MBEDTLS_ECP_DP_SECP224R1_ENABLED
-/* #define MBEDTLS_ECP_DP_SECP256R1_ENABLED */
-#undef MBEDTLS_ECP_DP_SECP384R1_ENABLED
-#undef MBEDTLS_ECP_DP_SECP521R1_ENABLED
-#undef MBEDTLS_ECP_DP_SECP192K1_ENABLED
-#undef MBEDTLS_ECP_DP_SECP224K1_ENABLED
-#undef MBEDTLS_ECP_DP_SECP256K1_ENABLED
-#undef MBEDTLS_ECP_DP_BP256R1_ENABLED
-#undef MBEDTLS_ECP_DP_BP384R1_ENABLED
-#undef MBEDTLS_ECP_DP_BP512R1_ENABLED
-/* #undef MBEDTLS_ECP_DP_CURVE25519_ENABLED */
-#undef MBEDTLS_ECP_DP_CURVE448_ENABLED
-
-/**
  * \def MBEDTLS_KEY_EXCHANGE_PSK_ENABLED
  *
  * Enable the PSK based ciphersuite modes in SSL / TLS.
@@ -159,51 +52,6 @@
 #undef MBEDTLS_KEY_EXCHANGE_PSK_ENABLED
 
 
-/**
- * \def MBEDTLS_PK_PARSE_EC_EXTENDED
- *
- * Enhance support for reading EC keys using variants of SEC1 not allowed by
- * RFC 5915 and RFC 5480.
- *
- * Currently this means parsing the SpecifiedECDomain choice of EC
- * parameters (only known groups are supported, not arbitrary domains, to
- * avoid validation issues).
- *
- * Disable if you only need to support RFC 5915 + 5480 key formats.
- */
-#undef MBEDTLS_PK_PARSE_EC_EXTENDED
-
-
-#undef MBEDTLS_FS_IO
-
-
-/**
- * \def MBEDTLS_NO_PLATFORM_ENTROPY
- *
- * Do not use built-in platform entropy functions.
- * This is useful if your platform does not support
- * standards like the /dev/urandom or Windows CryptoAPI.
- *
- * Uncomment this macro to disable the built-in platform entropy functions.
- */
-#define MBEDTLS_NO_PLATFORM_ENTROPY
-
-/**
- * \def MBEDTLS_ENTROPY_FORCE_SHA256
- *
- * Force the entropy accumulator to use a SHA-256 accumulator instead of the
- * default SHA-512 based one (if both are available).
- *
- * Requires: MBEDTLS_SHA256_C
- *
- * On 32-bit systems SHA-256 can be much faster than SHA-512. Use this option
- * if you have performance concerns.
- *
- * This option is only useful if both MBEDTLS_SHA256_C and
- * MBEDTLS_SHA512_C are defined. Otherwise the available hash module is used.
- */
-#define MBEDTLS_ENTROPY_FORCE_SHA256
-
 /*
  * \def MBEDTLS_SSL_SRV_C
  *
@@ -212,33 +60,6 @@
  * Comment this macro to support server
  */
 #undef MBEDTLS_SSL_SRV_C
-/*
- * \def MBEDTLS_CHACHA20_C
- * \def MBEDTLS_CHACHAPOLY_C
- * \def MBEDTLS_POLY1305_C
- *
- * Enable support of CHACHA20 and CHACHAPOLY algorithm.
- */
-#undef MBEDTLS_CHACHA20_C
-
-#undef MBEDTLS_CHACHAPOLY_C
-
-#undef MBEDTLS_POLY1305_C
-
-/*
- * \def MBEDTLS_CAMELLIA_C
- *
- * Enable to support camellia cipher suites.
- */
-#undef MBEDTLS_CAMELLIA_C
-
-
-/**
- * \def MBEDTLS_SELF_TEST
- *
- * Enable the checkup functions (*_self_test).
- */
-#undef MBEDTLS_SELF_TEST
 
 /**
  * \def MBEDTLS_SSL_FALLBACK_SCSV
@@ -467,20 +288,6 @@
 #undef MBEDTLS_SSL_TRUNCATED_HMAC
 
 /**
- * \def MBEDTLS_AESNI_C
- *
- * Enable AES-NI support on x86-64.
- *
- * Module:  library/aesni.c
- * Caller:  library/aes.c
- *
- * Requires: MBEDTLS_HAVE_ASM
- *
- * This modules adds support for the AES-NI instructions on x86-64
- */
-#undef MBEDTLS_AESNI_C
-
-/**
  * \def MBEDTLS_NET_C
  *
  * Enable the TCP and UDP over IPv6/IPv4 networking routines.
@@ -624,78 +431,6 @@
 #undef MBEDTLS_ERROR_C
 
 /**
- * \def MBEDTLS_PADLOCK_C
- *
- * Enable VIA Padlock support on x86.
- *
- * Module:  library/padlock.c
- * Caller:  library/aes.c
- *
- * Requires: MBEDTLS_HAVE_ASM
- *
- * This modules adds support for the VIA PadLock on x86.
- */
-#undef MBEDTLS_PADLOCK_C
-
-/**
- * \def MBEDTLS_RIPEMD160_C
- *
- * Enable the RIPEMD-160 hash algorithm.
- *
- * Module:  library/ripemd160.c
- * Caller:  library/md.c
- *
- */
-#undef MBEDTLS_RIPEMD160_C
-
-/**
- * \def MBEDTLS_ARC4_C
- *
- * Enable the ARCFOUR stream cipher.
- *
- * Module:  library/arc4.c
- * Caller:  library/cipher.c
- *
- * This module enables the following ciphersuites (if other requisites are
- * enabled as well):
- *      MBEDTLS_TLS_ECDH_ECDSA_WITH_RC4_128_SHA
- *      MBEDTLS_TLS_ECDH_RSA_WITH_RC4_128_SHA
- *      MBEDTLS_TLS_ECDHE_ECDSA_WITH_RC4_128_SHA
- *      MBEDTLS_TLS_ECDHE_RSA_WITH_RC4_128_SHA
- *      MBEDTLS_TLS_ECDHE_PSK_WITH_RC4_128_SHA
- *      MBEDTLS_TLS_DHE_PSK_WITH_RC4_128_SHA
- *      MBEDTLS_TLS_RSA_WITH_RC4_128_SHA
- *      MBEDTLS_TLS_RSA_WITH_RC4_128_MD5
- *      MBEDTLS_TLS_RSA_PSK_WITH_RC4_128_SHA
- *      MBEDTLS_TLS_PSK_WITH_RC4_128_SHA
- *
- * \warning   ARC4 is considered a weak cipher and its use constitutes a
- *            security risk. If possible, we recommend avoidng dependencies on
- *            it, and considering stronger ciphers instead.
- *
- */
-#undef MBEDTLS_ARC4_C
-
-/**
- * \def MBEDTLS_XTEA_C
- *
- * Enable the XTEA block cipher.
- *
- * Module:  library/xtea.c
- * Caller:
- */
-#undef MBEDTLS_XTEA_C
-
-/**
- * \def MBEDTLS_BLOWFISH_C
- *
- * Enable the Blowfish block cipher.
- *
- * Module:  library/blowfish.c
- */
-#undef MBEDTLS_BLOWFISH_C
-
-/**
  * \def MBEDTLS_KEY_EXCHANGE_DHE_PSK_ENABLED
  *
  * Enable the DHE-PSK based ciphersuite modes in SSL / TLS.
@@ -772,31 +507,6 @@
 #undef MBEDTLS_KEY_EXCHANGE_RSA_PSK_ENABLED
 
 /**
- * \def MBEDTLS_PSA_CRYPTO_STORAGE_C
- *
- * Enable the Platform Security Architecture persistent key storage.
- *
- * Module:  library/psa_crypto_storage.c
- *
- * Requires: MBEDTLS_PSA_CRYPTO_C,
- *           either MBEDTLS_PSA_ITS_FILE_C or a implementation of
- *           the PSA ITS interface
- */
-#undef MBEDTLS_PSA_CRYPTO_STORAGE_C
-
-/**
- * \def MBEDTLS_PSA_ITS_FILE_C
- *
- * Enable the emulation of the Platform Security Architecture
- * Internal Trusted Storage (PSA ITS) over files.
- *
- * Module:  library/psa_its_file.c
- *
- * Requires: MBEDTLS_FS_IO
- */
-#undef MBEDTLS_PSA_ITS_FILE_C
-
-/**
  * \def MBEDTLS_SSL_PROTO_TLS1_3
  *
  * Enable support for TLS 1.3.
@@ -869,31 +579,6 @@
 
 #ifdef MBEDTLS_SSL_PROTO_TLS1_3
 /**
- * \def MBEDTLS_PK_RSA_ALT_SUPPORT
- *
- * Support external private RSA keys (eg from a HSM) in the PK layer.
- *
- * Comment this macro to disable support for external private RSA keys.
- */
-#define MBEDTLS_PK_RSA_ALT_SUPPORT
-
-/**
- * \def MBEDTLS_PSA_CRYPTO_C
- *
- * Enable the Platform Security Architecture cryptography API.
- *
- * \warning The PSA Crypto API is still beta status. While you're welcome to
- * experiment using it, incompatible API changes are still possible, and some
- * parts may not have reached the same quality as the rest of Mbed TLS yet.
- *
- * Module:  library/psa_crypto.c
- *
- * Requires: MBEDTLS_CTR_DRBG_C, MBEDTLS_ENTROPY_C
- *
- */
-#define MBEDTLS_PSA_CRYPTO_C
-
-/**
  * \def MBEDTLS_SSL_TLS1_3_COMPATIBILITY_MODE
  *
  * Enable TLS 1.3 middlebox compatibility mode.
@@ -949,20 +634,6 @@
 #undef MBEDTLS_DEBUG_C
 
 /**
- * \def MBEDTLS_LMS_C
- *
- * Enable the LMS stateful-hash asymmetric signature algorithm.
- *
- * Module:  library/lms.c
- * Caller:
- *
- * Requires: MBEDTLS_PSA_CRYPTO_C
- *
- * Uncomment to enable the LMS verification algorithm and public key operations.
- */
-#undef MBEDTLS_LMS_C
-
-/**
  * \def MBEDTLS_PKCS7_C
  *
  * Enable PKCS #7 core for using PKCS #7-formatted signatures.
@@ -984,62 +655,7 @@
  */
 #define FORCE_TLS_VERSION MBEDTLS_SSL_VERSION_TLS1_3
 
-/**
- * \def Enable alternate crypto implementations to use the hardware
- *      acceleration. Include The hardware acceleration module's (cy-mbedtls-acceleration)
- *      header file to enable the supported ALT configurations.
- */
-#ifndef DISABLE_MBEDTLS_ACCELERATION
-#include "mbedtls_alt_config.h"
-
-/**
- * The cy-mbedtls-acceleration module supports only DP_SECP192R1,
- * SECP224R1, SECP256R1, SECP384R1 and SECP521R1 curves. If any
- * other curve is enabled, need to disable the MBEDTLS_ECP_ALT.
- */
-#ifdef MBEDTLS_ECP_DP_SECP192K1_ENABLED
-#undef MBEDTLS_ECP_ALT
-#undef MBEDTLS_ECDH_GEN_PUBLIC_ALT
-#undef MBEDTLS_ECDSA_SIGN_ALT
-#undef MBEDTLS_ECDSA_VERIFY_ALT
-#endif
-#ifdef MBEDTLS_ECP_DP_SECP224K1_ENABLED
-#undef MBEDTLS_ECP_ALT
-#undef MBEDTLS_ECDH_GEN_PUBLIC_ALT
-#undef MBEDTLS_ECDSA_SIGN_ALT
-#undef MBEDTLS_ECDSA_VERIFY_ALT
-#endif
-#ifdef MBEDTLS_ECP_DP_SECP256K1_ENABLED
-#undef MBEDTLS_ECP_ALT
-#undef MBEDTLS_ECDH_GEN_PUBLIC_ALT
-#undef MBEDTLS_ECDSA_SIGN_ALT
-#undef MBEDTLS_ECDSA_VERIFY_ALT
-#endif
-#ifdef MBEDTLS_ECP_DP_BP256R1_ENABLED
-#undef MBEDTLS_ECP_ALT
-#undef MBEDTLS_ECDH_GEN_PUBLIC_ALT
-#undef MBEDTLS_ECDSA_SIGN_ALT
-#undef MBEDTLS_ECDSA_VERIFY_ALT
-#endif
-#ifdef MBEDTLS_ECP_DP_BP384R1_ENABLED
-#undef MBEDTLS_ECP_ALT
-#undef MBEDTLS_ECDH_GEN_PUBLIC_ALT
-#undef MBEDTLS_ECDSA_SIGN_ALT
-#undef MBEDTLS_ECDSA_VERIFY_ALT
-#endif
-#ifdef MBEDTLS_ECP_DP_BP512R1_ENABLED
-#undef MBEDTLS_ECP_ALT
-#undef MBEDTLS_ECDH_GEN_PUBLIC_ALT
-#undef MBEDTLS_ECDSA_SIGN_ALT
-#undef MBEDTLS_ECDSA_VERIFY_ALT
-#endif
-#ifdef MBEDTLS_ECP_DP_CURVE25519_ENABLED
-#undef MBEDTLS_ECP_ALT
-#undef MBEDTLS_ECDH_GEN_PUBLIC_ALT
-#undef MBEDTLS_ECDSA_SIGN_ALT
-#undef MBEDTLS_ECDSA_VERIFY_ALT
-#endif
-
-#endif /* DISABLE_MBEDTLS_ACCELERATION */
+#define MBEDTLS_USE_PSA_CRYPTO
+#define MBEDTLS_PSA_CRYPTO_CONFIG
 
 #endif /* MBEDTLS_USER_CONFIG_HEADER */

@@ -13,7 +13,7 @@ See [Design and implementation](docs/design_and_implementation.md) for detailed 
 
 ## Requirements
 
-- [ModusToolbox&trade;](https://www.infineon.com/modustoolbox) v3.8 or later (tested with v3.8)
+- [ModusToolbox&trade;](https://www.infineon.com/modustoolbox) v3.8 or later (tested with v3.9)
 - Board support package (BSP) minimum required version: 1.0.0
 - Programming language: C
 - Associated parts: All [PSOC&trade; Edge MCU](https://www.infineon.com/products/microcontroller/32-bit-psoc-arm-cortex/32-bit-psoc-edge-arm) parts
@@ -22,7 +22,7 @@ See [Design and implementation](docs/design_and_implementation.md) for detailed 
 ## Supported toolchains (make variable 'TOOLCHAIN')
 
 - Arm&reg; Compiler v6.22 (`ARM`)
-- LLVM Embedded Toolchain for Arm&reg; v19.1.5 (`LLVM_ARM`)
+- Arm&reg; Toolchain for Embedded v22.1 (`LLVM_ARM`)
 
 ## Supported kits (make variable 'TARGET')
 
@@ -63,7 +63,7 @@ See [Using the code example](docs/using_the_code_example.md) for instructions on
    **Figure 2. Changing the temperature set-point, mode, and fan speed**
 
    ![](images/fan_mode.png)
-   
+
 4. Speak the phrase "Okay thermostat" to trigger the voice assistant, then provide voice commands such as "Go to Settings" or "Reduce temperature by {one/two/.../ten} degrees". The thermostat adjusts its settings based on the given commands
 
    **Figure 3. Say "Okay thermostat" followed by "Go to Settings" voice command**
@@ -77,31 +77,31 @@ See [Using the code example](docs/using_the_code_example.md) for instructions on
    **Figure 4. Switching between idle and active screen using radar-based presence detection**
 
    ![](images/radar_test.png)
-   
+
 6. Follow the steps below (**Step 6** to **Step 10**) to control the thermostat application remotely. Tap the **CONNECT** icon as shown. Tap the mobile icon to start Bluetooth&reg; advertisements. Open the mobile app and follow the instructions to pair your device with the thermostat via Bluetooth&reg;
 
    **Figure 5. Bluetooth&reg; pairing with thermostat using the mobile app**
 
    ![](images/ble_on_board.png)
-   
+
 7. Once paired, the mobile app indicates an active connection with the thermostat over Bluetooth&reg;. Tap the thermostat icon on the home screen to navigate to the thermostat control screen. From there, you can adjust the temperature, fan speed, modes, and configure the date and time directly from your smartphone
 
    **Figure 6. Controlling thermostat over Bluetooth&reg; using the mobile app**
 
    ![](images/control_over_ble.png)
-   
+
 8. On the PSOC&trade; Edge HMI Kit, tap the Wi-Fi icon, and enter your Wi-Fi SSID and password using the on-screen keyboard. The thermostat will then connect to your Wi-Fi network
 
    **Figure 7. Wi-Fi onboarding on the thermostat using the keyboard**
 
    ![](images/wifi_on_board_via_keyboard.png)
-   
+
 9. Alternatively, you can configure the Wi-Fi credentials through the mobile app (MAPP). Open the application, navigate to **SETTINGS** → **Configure Wi-Fi credentials**, and select your Wi-Fi network
 
    **Figure 8. Wi-Fi onboarding on thermostat via the mobile app**
 
    ![](images/wifi_on_board_via_mobileapp.png)
-   
+
 10. After connecting to the Wi-Fi, the thermostat connects to the AWS cloud platform using an MQTT client. This connection enables cloud-based remote control and monitoring of the thermostat via mobile app. To enable cloud control functionality, please see [AWS Cloud Configuration](#aws-cloud-configuration)
 
     **Figure 9. Controlling the thermostat over the cloud using the mobile app**
@@ -114,7 +114,7 @@ See [Using the code example](docs/using_the_code_example.md) for instructions on
     **Figure 10. Sync the thermostat with the current location**
 
     ![](images/https_sync.png)
-    
+
 12. The current time and date received from the connected mobile app over Bluetooth&reg; is updated in the RTC, ensuring that the system maintains the accurate time and date, even during power loss. To ensure RTC functionality, a coin cell battery should be installed in the HMI kit
 13. The thermostat functionality also includes the ability to display the changes in humidity of the current environment. Observe how the humidity percentage(%) dynamically updates in real time
 14. Access the **SETTINGS** menu on the thermostat to customize its features and behavior. You can adjust preferences, such as display brightness, screen timeout values, and advanced settings
@@ -152,7 +152,7 @@ See [Using the code example](docs/using_the_code_example.md) for instructions on
                   {
                      "Effect": "Allow",
                      "Action": "iot:*",
-                     "Resource": "*".                  
+                     "Resource": "*".
                   }
             ]
          }
@@ -206,6 +206,7 @@ Document title: *CE242776* - *PSOC&trade; Edge HMI Kit: Smart thermostat*
  1.0.0   | New code example
  1.0.1   | Updated the design file to use the latest SPI personality
  1.1.0   | Added LLVM toolchain support, upgraded LVGL to v9.5.0 and enhanced overall performance
+ 1.2.0   | Updated to support wifi-core-freertos-lwip-mbedtls v4.X
 <br>
 
 

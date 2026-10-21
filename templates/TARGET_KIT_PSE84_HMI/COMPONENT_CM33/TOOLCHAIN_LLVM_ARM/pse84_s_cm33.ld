@@ -62,6 +62,8 @@ INCLUDE cymem_gnu_CM33_0_S.ld
  *   __zero_table_start__
  *   __zero_table_end__
  *   __data_start__
+ *   __bothinit_array_start
+ *   __bothinit_array_end
  *   __preinit_array_start
  *   __preinit_array_end
  *   __init_array_start
@@ -229,6 +231,7 @@ SECTIONS
         . = ALIGN(4);
 
         /* Array of pointers to preinit functions */
+        PROVIDE_HIDDEN (__bothinit_array_start = .);
         PROVIDE_HIDDEN (__preinit_array_start = .);
 
         KEEP(*(.preinit_array))
@@ -244,6 +247,7 @@ SECTIONS
         KEEP(*(.init_array))
 
         PROVIDE_HIDDEN (__init_array_end = .);
+        PROVIDE_HIDDEN (__bothinit_array_end = .);
 
         . = ALIGN(4);
 
